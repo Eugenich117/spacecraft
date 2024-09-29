@@ -21,6 +21,7 @@ data = {}
 data_correction = {}
 ic.enable()
 def calculation():
+    disable_all_buttons()
     data["Rp"] = float(combo_Rp.get())
     data["e"] = float(combo_e.get())
     data["ArgLat"] = float(combo_ArgLat.get()) * cToRad
@@ -65,6 +66,7 @@ def calculation():
         memo1.insert("end", s_st + "\n")
     except Exception as e:
         memo1.insert("end", f"Error in calculating Sidereal Time: {str(e)}\n")
+    enable_all_buttons()
     end_time = time.time()
     elapsed_time = end_time - start_time
     memo1.insert("end", f"Время расчета: {elapsed_time}" + "\n")
@@ -73,6 +75,7 @@ def calculation():
 
 
 def graf():
+    disable_all_buttons()
     ic.enable()
     data["Rp"] = float(combo_Rp.get())
     data["e"] = float(combo_e.get())
@@ -148,9 +151,10 @@ def graf():
 
     # Запуск основного цикла обработки событий
     window_2.mainloop()
-
+    enable_all_buttons()
 
 def correction():
+    disable_all_buttons()
     start_time = time.time()
     data["Rp"] = float(combo_Rp.get())
     data["e"] = float(combo_e.get())
@@ -283,7 +287,7 @@ def correction():
         my_time += time_step
         counter += 1
 
-
+    enable_all_buttons()
     end_time = time.time()
     elapsed_time = end_time - start_time
     memo1.insert("end", f"Время работы graf: {elapsed_time} секунд\n")
@@ -606,7 +610,7 @@ combo_Incl.pack()
 label_step = Label(second_frame, text="Введите шаг моделирования графика, секунд", font=("Times New Roman", 12), fg="blue")
 label_step.pack()
 combo_step = Combobox(second_frame)
-combo_step['values'] = (1, 30, 60, "Свое значение")
+combo_step['values'] = (20, 30, 60, "Свое значение")
 combo_step.current(0)
 combo_step.pack()
 
@@ -683,23 +687,37 @@ def correction_thread():
     thread2 = threading.Thread(target=correction)
     thread2.start()
 
+def disable_all_buttons():
+    btn_load.config(state="disabled")
+    btn_calc.config(state="disabled")
+    btn_graf.config(state="disabled")
+    btn_correction.config(state="disabled")
+    btn_save.config(state="disabled")
+
+def enable_all_buttons():
+    btn_load.config(state="normal")
+    btn_calc.config(state="normal")
+    btn_graf.config(state="normal")
+    btn_correction.config(state="normal")
+    btn_save.config(state="normal")
+
 btn_load = Button(root, text="Загрузить данные из файла", font=("Times New Roman", 12, "bold"), fg="blue", command=load_from_file)
 btn_load.pack()
 
-btn = Button(root, text="Расчет", font=("Times New Roman", 12, "bold"), fg="red", command=calculation)
-btn.pack()
+btn_calc = Button(root, text="Расчет", font=("Times New Roman", 12, "bold"), fg="red", command=calculation)
+btn_calc.pack()
 
 btn_graf = Button(root, text="Построить трассу спутника", font=("Times New Roman", 12, "bold"), fg="red", command=graf_threat)
 btn_graf.pack()
 
-btn_graf = Button(root, text="Смоделировать движение по орбите", font=("Times New Roman", 12, "bold"), fg="red", command=correction_thread)
-btn_graf.pack()
+btn_correction = Button(root, text="Смоделировать движение по орбите", font=("Times New Roman", 12, "bold"), fg="red", command=correction_thread)
+btn_correction.pack()
 
 memo1 = Text(root, wrap="none", height=20, width=90)
 memo1.pack()
 
-btn = Button(root, text="Сохранить в блокнот", font=("Times New Roman", 12, "bold"), fg="red", command=save_to_file)
-btn.pack()
+btn_save = Button(root, text="Сохранить в блокнот", font=("Times New Roman", 12, "bold"), fg="red", command=save_to_file)
+btn_save.pack()
 
 root.mainloop()
 
