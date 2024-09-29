@@ -1,0 +1,15 @@
+Prigee=10000
+Eccentr=0.001
+ArgLat=0
+PeriArg=270
+AscNode=0
+Inclin=63.5
+Step=10
+Integr=Рунге-Кутты 4
+mass=1000
+thrust=10
+interval=15000
+work=1000
+turn=500
+stabilize=Максимальная скорость изменения фокального параметра
+direction=Положительное
