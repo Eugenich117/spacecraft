@@ -5,7 +5,6 @@ from tkinter.ttk import Combobox
 from tkinter import Tk, filedialog, messagebox, ttk
 import datetime
 import time
-import scipy
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from openpyxl import Workbook
@@ -224,6 +223,7 @@ def correction():
     }
 
     equations = [eq.de_func, eq.dp_func, eq.domega_func, eq.datta_func]
+    span = 0
 
     while my_time < data["interval"]:
 
@@ -286,14 +286,129 @@ def correction():
         Lon.append(Longitude); Lat.append(Latitude)
         my_time += time_step
         counter += 1
+        if 33 <= Longitude <= 40 and 46 <= Latitude <= 52:
+            span += 1
+            print(f"Время прохождения над территорией {my_time}")
 
     enable_all_buttons()
     end_time = time.time()
     elapsed_time = end_time - start_time
+
     memo1.insert("end", f"Время работы graf: {elapsed_time} секунд\n")
     memo1.insert("end", f"Количество итераций:{counter}\n")
+    memo1.insert("end", f"Количество пролетов: {span} раз\n")
     save_to_excel(A, P, E, R, OM, X)
     plot_graphs_with_scrollbar(X, A, P, E, R, OM, Lon, Lat)
+
+
+def indignant():
+    '''снести к хуям эту ебаную хуйню, все блять по формулам правильно, но по результатам нихуя оно не правильно '''
+    disable_all_buttons()
+    ic.enable()
+    r0 = 6371 + 180
+    v_circular = np.sqrt(cMu / r0)  # Круговая скорость, км/с
+    v_initial = v_circular + 0.5  # Начальная скорость, км/с
+    h = v_initial**2 - ((2 * cMu) / r0)
+    data["Rp"] = r0
+    data["e"] = m.sqrt(1 + (v_initial**2 * r0**2 * h) / cMu**2)
+    data["ArgLat"] = float(combo_ArgLat.get()) * cToRad
+    data["Incl"] = float(combo_Incl.get()) * cToRad
+    data["AscNode"] = float(combo_AscNode.get()) * cToRad
+    data["ArgPerigee"] = float(combo_ArgPerig.get()) * cToRad
+    data["step"] = float(combo_step.get())
+    data["interval"] = float(combo_interval.get())
+    try:
+        check_data(data)
+    except ValueError as e:
+        return
+    start_time = time.time()
+    calc = cl.TSpacecraft(data)
+    orb = cl.TOrbitClass(data)
+    my_time = datetime.datetime.now().timestamp()
+    end_time = my_time + orb.period() #data["interval"]
+    time_step = orb.step
+    norm_time = 0
+    V = []
+    VR = []
+    VTR = []
+    IA = []
+    EA = []
+    R = []
+    T = []
+    x = []
+    y = []
+    counter = 0
+    while my_time < end_time:
+        result_class_dict_graf, result_dict_graf, vtr, vrad, ia, ea, r, v = calc.change_time(my_time)
+        x_values = result_dict_graf['Longitude'] * cToDeg
+        x.append(x_values)
+        y_values = result_dict_graf['Latitude'] * cToDeg
+        y.append(y_values)
+        V.append(v/1.8)
+        VTR.append(vtr/1.8)
+        VR.append(vrad)
+        IA.append(ia)
+        EA.append(ea)
+        R.append(r)
+        T.append(norm_time)
+        norm_time += time_step
+        my_time += time_step
+        counter += 1
+
+    plt.plot(x, y)
+    plt.title('Трасса')
+    plt.xlabel('Время')
+    plt.ylabel('Скорость')
+    plt.grid(True)
+    plt.show()
+
+    plt.plot(T, V)
+    plt.title('Полная скорость')
+    plt.xlabel('Время')
+    plt.ylabel('Скорость')
+    plt.grid(True)
+    plt.show()
+
+    plt.plot(T, VTR)
+    plt.title('Трансверсальная скорость')
+    plt.xlabel('Время')
+    plt.ylabel('Скорость')
+    plt.grid(True)
+    plt.show()
+
+    plt.plot(T, VR)
+    plt.title('Радиальная скорость')
+    plt.xlabel("Время")
+    plt.ylabel('Скорость')
+    plt.grid(True)
+    plt.show()
+
+    plt.plot(T, IA)
+    plt.title('Истаинная аномалия')
+    plt.xlabel("Время")
+    plt.ylabel('Истинная аномалия')
+    plt.grid(True)
+    plt.show()
+
+    plt.plot(T, EA)
+    plt.title('Эксцентрическая аномалия')
+    plt.xlabel("Время")
+    plt.ylabel('Эксцентрическая аномалия')
+    plt.grid(True)
+    plt.show()
+
+    plt.plot(T, R)
+    plt.title('Радиус')
+    plt.xlabel("Время")
+    plt.ylabel('Высота орбиты')
+    plt.grid(True)
+    plt.show()
+
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    memo1.insert("end", f"Время работы graf: {elapsed_time} секунд\n")
+    memo1.insert("end", f"Количество итераций:{counter}\n")
+    enable_all_buttons()
 
 
 def _on_mouse_wheel(event, canvas):
@@ -375,7 +490,6 @@ def plot_graphs_with_scrollbar(X, A, P, E, R, OM, Lon, Lat):
     window.mainloop()
 
 
-
 def load_from_file():
     file_path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt")])
 
@@ -417,6 +531,8 @@ def load_from_file():
         combo_turn.set(values_dict.get('turn', ''))
         combo_stabelize.set(values_dict.get('stabelize', ''))
         combo_direction.set(values_dict.get('direction', ''))
+
+
 def save_to_file():
     data = f"Аргумент перигея Perigee={combo_Rp.get()}\n" \
            f"Эксцентриситет Eccentr={combo_e.get()}\n" \
@@ -463,9 +579,10 @@ def save_to_excel(A, P, E, R, OM, X, step = 10):
         ("Интервал моделирования", combo_interval.get()),
         ("Время работы двигателя", combo_work.get()),
         ("Время включения двигателя", combo_turn.get()),
-        ("Алгоритм стабилизации", combo_stabelize.get()),
-        ("Направление тяги двигателя", combo_direction.get())
+        ("Алгоритм стабилизации", combo_stabelize.get())
     ]
+    '''("Направление тяги двигателя", combo_direction.get(),
+             "Площадь солнеынх батарей", combo_square.get()'''
 
     # Записываем параметры в первые строки
     for i, (param, value) in enumerate(data, start=1):
@@ -512,7 +629,7 @@ def save_to_excel(A, P, E, R, OM, X, step = 10):
 def check_data(data):
     # Определяем допустимые диапазоны значений для каждого параметра
     valid_ranges = {
-        "Rp": (7000, 43000),           # Например, радиус перицентра должен быть положительным числом
+        "Rp": (6551, 43000),           # Например, радиус перицентра должен быть положительным числом
         "e": (0, 0.8),                       # Эксцентриситет должен быть в диапазоне от 0 до 1
         "ArgLat": (0, 360),                # Аргумент широты должен быть в диапазоне от 0 до 360 градусов
         "Incl": (-90, 90),                  # Наклонение должно быть в диапазоне от 0 до 180 градусов
@@ -530,9 +647,11 @@ def check_data(data):
     for key, (min_val, max_val) in valid_ranges.items():
         value = data[key]
         if not isinstance(value, (int, float)):
+            enable_all_buttons()
             messagebox.showerror("Ошибка", f"Значение '{key}' должно быть числом")
             raise ValueError(f"Значение '{key}' должно быть числом")
         if not (min_val <= value <= max_val):
+            enable_all_buttons()
             messagebox.showerror("Ошибка",
                                  f"Значение '{key}' ({value}) вне допустимого диапазона {min_val} - {max_val}")
             raise ValueError(f"Значение '{key}' ({value}) вне допустимого диапазона {min_val} - {max_val}")
@@ -656,6 +775,27 @@ combo_turn['values'] = (2000, 50, 150, "Свое значение")
 combo_turn.current(0)
 combo_turn.pack()
 
+label_square = Label(second_frame, text="Введите площадь солнечных батарей [m^2]", font=("Times New Roman", 12), fg="blue")
+label_square.pack()
+combo_square = Combobox(second_frame)
+combo_square['values'] = (5, 10, 50, "Свое значение")
+combo_square.current(1)
+combo_square.pack()
+
+label_aerodyn_square = Label(second_frame, text="Введите характерную аэродинамическую площадь [m^2]", font=("Times New Roman", 12), fg="blue")
+label_aerodyn_square.pack()
+combo_aerodyn_square = Combobox(second_frame)
+combo_aerodyn_square['values'] = (5, 10, 50, "Свое значение")
+combo_aerodyn_square.current(0)
+combo_aerodyn_square.pack()
+
+label_reflection = Label(second_frame, text="Введите коэффициет отражения", font=("Times New Roman", 12), fg="blue")
+label_reflection.pack()
+combo_reflection = Combobox(second_frame)
+combo_reflection['values'] = (1, 1.2, 1.5, "Свое значение")
+combo_reflection.current(0)
+combo_reflection.pack()
+
 label_stabelize = Label(second_frame, text="Выберите алгоритм стабилизации", font=("Times New Roman", 12), fg="blue")
 label_stabelize.pack()
 combo_stabelize = Combobox(second_frame)
@@ -687,11 +827,18 @@ def correction_thread():
     thread2 = threading.Thread(target=correction)
     thread2.start()
 
+def indignant_thread():
+    waiting = f"Подождите, это займет какое-то время"
+    memo1.insert("end", waiting + "\n")
+    thread2 = threading.Thread(target=indignant)
+    thread2.start()
+
 def disable_all_buttons():
     btn_load.config(state="disabled")
     btn_calc.config(state="disabled")
     btn_graf.config(state="disabled")
     btn_correction.config(state="disabled")
+    btn_indignant.config(state="disabled")
     btn_save.config(state="disabled")
 
 def enable_all_buttons():
@@ -699,19 +846,28 @@ def enable_all_buttons():
     btn_calc.config(state="normal")
     btn_graf.config(state="normal")
     btn_correction.config(state="normal")
+    btn_indignant.config(state="normal")
     btn_save.config(state="normal")
 
-btn_load = Button(root, text="Загрузить данные из файла", font=("Times New Roman", 12, "bold"), fg="blue", command=load_from_file)
+btn_load = Button(root, text="Загрузить данные из файла", font=("Times New Roman", 12, "bold"), fg="blue",
+                  command=load_from_file)
 btn_load.pack()
 
-btn_calc = Button(root, text="Расчет", font=("Times New Roman", 12, "bold"), fg="red", command=calculation)
+btn_calc = Button(root, text="Расчет текцщего положения", font=("Times New Roman", 12, "bold"), fg="red",
+                  command=calculation)
 btn_calc.pack()
 
-btn_graf = Button(root, text="Построить трассу спутника", font=("Times New Roman", 12, "bold"), fg="red", command=graf_threat)
+btn_graf = Button(root, text="Построить трассу спутника (ур-е Кеплера)", font=("Times New Roman", 12, "bold"), fg="red",
+                  command=graf_threat)
 btn_graf.pack()
 
-btn_correction = Button(root, text="Смоделировать движение по орбите", font=("Times New Roman", 12, "bold"), fg="red", command=correction_thread)
+btn_correction = Button(root, text="Смоделировать невозмущенное движение по орбите", font=("Times New Roman", 12, "bold"),
+                        fg="red", command=correction_thread)
 btn_correction.pack()
+
+btn_indignant = Button(root, text="Смоделировать возмущенное движение по орбите", font=("Times New Roman", 12, "bold"),
+                        fg="red", command=indignant_thread)
+btn_indignant.pack()
 
 memo1 = Text(root, wrap="none", height=20, width=90)
 memo1.pack()

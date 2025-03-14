@@ -32,9 +32,9 @@ class TSpacecraft:
 
         Tg = m.sqrt((1 + self.FInitOrbit.e) / (1 - self.FInitOrbit.e)) * m.tan((0.5 * Enew))
         TrAnom = 2 * m.atan(Tg)
-        if TrAnom > 2 * m.pi:
-            TrAnom %= (2 * m.pi)
-        if TrAnom < 0:
+        if TrAnom >= m.pi:
+            TrAnom -= 2 * m.pi
+        if TrAnom <= -m.pi:
             TrAnom += 2 * m.pi
         Unew = self.FInitOrbit.ArgPerigee + TrAnom
         if Unew > 2 * m.pi:
@@ -44,8 +44,9 @@ class TSpacecraft:
         self.data["ArgLat"] = Unew
         self.FCurentOrbit = TOrbitClass(self.data)
         self.FCurentOrbit.assign_graf(my_time)
+        vtr, vrad, ia, ea, r, v = self.FCurentOrbit.data_take()
         result_class_dict_graf, result_dict_graf = self.FCurentOrbit.class_to_cart_graf(my_time)
-        return result_class_dict_graf, result_dict_graf
+        return result_class_dict_graf, result_dict_graf# vtr, vrad, ia, ea, r, v
 
     def update(self, data_correction, my_time):
         self.data = data_correction
@@ -81,6 +82,16 @@ class TOrbitClass:
         self.ArgPerigee = data["ArgPerigee"]
         self.step = data["step"]
         self.time = datetime.datetime.now().time()
+
+    def data_take(self):
+        vtr = self.v_transversal()
+        vrad = self.vradial()
+        ia = self.true_anomaly()
+        ea = self.ecc_anomaly()
+        r = self.radius()
+        v = self.v_full()
+        #v = m.sqrt(vtr ** 2 + vrad ** 2)
+        return vtr, vrad, ia, ea, r, v
 
     def assign(self):
         self.Rp = self.data["Rp"]
@@ -363,6 +374,33 @@ class TOrbitClass:
         return gst_in_radians  # SiderealTime_const
 
     ic.disable()
+
+    def vradial(self):
+        ic.disable()
+        try:
+            vradial_const = float(m.sqrt(cMu / self.parameter()) * self.e * m.sin(self.true_anomaly()))
+            ic(vradial_const)
+            return vradial_const
+        except (ValueError, ZeroDivisionError) as e:
+            print(f"Error in vradial: {e}")
+            return None
+
+    def v_transversal(self):
+        ic.disable()
+        try:
+            transversal_const = float(m.sqrt(cMu / self.parameter()) * (1 + m.cos(self.true_anomaly())))
+            return transversal_const
+        except (ValueError, ZeroDivisionError) as e:
+            print(f"Error in vradial: {e}")
+            return None
+
+    def v_full(self):
+        try:
+            full_const = float(m.sqrt(cMu / self.parameter()) * ((1 + m.cos(self.true_anomaly())) + self.e * m.sin(self.true_anomaly())))
+            return full_const
+        except (ValueError, ZeroDivisionError) as e:
+            print(f"Error in vradial: {e}")
+            return None
     def ang_rate(self): #угловая скорость
         ic.disable()
         try:
@@ -397,11 +435,10 @@ class TOrbitClass:
         ic.disable()
         try:
             true_anomaly_const = float(self.ArgLat - self.ArgPerigee)
-            if true_anomaly_const > 2 * m.pi:
-                true_anomaly_const %= (2 * m.pi)
-            if true_anomaly_const < 0:
+            if true_anomaly_const >= m.pi:
+                true_anomaly_const -= 2 * m.pi
+            if true_anomaly_const <= -m.pi:
                 true_anomaly_const += 2 * m.pi
-            ic(true_anomaly_const)
             return true_anomaly_const
         except ValueError as ve:
             print(f"Error in true_anomaly: {ve}")
@@ -477,20 +514,6 @@ class TOrbitClass:
         except (ValueError, ZeroDivisionError) as e:
             print(f"Error in perigee_pass_time: {e}")
             return None
-
-    def kepler_equation(self, e, M):
-        ic.enable()
-        Eps = 1e-9  # точность
-        Eold = M
-        Enew = 1
-        Stop = False
-        while not Stop:
-            Enew = M + e * m.sin(Eold * cToRad)
-            Stop = abs(Eold - Enew) <= Eps
-            Eold = Enew
-        ic(Enew)
-        return Enew
-
     '''def change_time(self, my_time):
         M0 = self.FInitOrbit.mean_anomaly()
 

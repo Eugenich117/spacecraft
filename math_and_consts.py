@@ -5,7 +5,7 @@ import math as m
 # Constants
 cRe = 6371.210  # EarthMeanRadius in km
 cW = 0.7292115E-4  # Angular velocity of Earth rotation in 1/s
-cMu = 0.398603E6  # km^3/s^2
+cMu = 398603  # km^3/s^2
 JD2K15 = 2451545.0
 cToDeg = 180 / m.pi
 cToRad = m.pi / 180

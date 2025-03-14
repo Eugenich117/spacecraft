@@ -1,92 +1,139 @@
 from math_and_consts import *
 import math as m
 from icecream import ic
-#from math import fabs
 import datetime
 import time
 import scipy
-import matplotlib.pyplot as plt
-from scipy.integrate import solve_ivp
 import numpy as np
 from astropy.time import Time
 from astropy.coordinates import EarthLocation
 import concurrent.futures
 import threading
 import multiprocessing
-cMu = 0.398603E6  # km^3/s^2
-start_time = time.time()
-def compute_trajectory(i, acceleration, napor, TETTA, X, Y, V_MOD, T, PX, nx):
-    print(f"{multiprocessing.current_process()}, value = {i}")
-    TETTA[i].append(i)
-    X[i].append(i)
-    Y[i].append(i)
-    V_MOD[i].append(i)
-    T[i].append(i)
-    napor[i].append(i)
-    nx[i].append(i)
-    PX[i].append(i)
-    print(f"Process {i} finished, data: TETTA={TETTA[i]}, X={X[i]}, Y={Y[i]}")  # Вывод для проверки данных
+import atmospy
+from poliastro.bodies import Earth
+from poliastro.twobody import Orbit
+from astropy import units as u
+from scipy.integrate import solve_ivp
+import matplotlib.pyplot as plt
+import pyshtools
 
-if __name__ == '__main__':
-    '''prc = []  # Список для хранения процессов
-
-    # Создаем и запускаем процессы вручную
-    for i in range(5):
-        p = multiprocessing.Process(target=worker, args=(i,))
-        prc.append(p)
-        p.start()
-
-    # Ожидаем завершения всех процессов
-    for p in prc:
-        p.join()'''
-
-    # Теперь создаем и запускаем задачи в пуле процессов
-
-    manager = multiprocessing.Manager()
-    acceleration = manager.list([[] for _ in range(5)])
-    napor = manager.list([manager.list() for _ in range(5)])
-    TETTA = manager.list([manager.list() for _ in range(5)])
-    X = manager.list([manager.list() for _ in range(5)])
-    Y = manager.list([manager.list() for _ in range(5)])
-    T = manager.list([manager.list() for _ in range(5)])
-    PX = manager.list([manager.list() for _ in range(5)])
-    nx = manager.list([manager.list() for _ in range(5)])
-    V_MOD = manager.list([manager.list() for _ in range(5)])
-
-    for i in range(5):
-        X[i].append(50)
-    print(X)
-    with multiprocessing.Pool(5) as p:
-        #p.starmap(compute_trajectory, [(i, acceleration, napor, TETTA, X, Y, V_MOD, T, PX, nx) for i in range(5)])
-        for i in range(5):
-            p.apply(compute_trajectory, (i, acceleration, napor, TETTA, X, Y, V_MOD, T, PX, nx))
-        '''results = p.map(compute_trajectory, range(5))
-        p.close()
-        p.join()'''
-        '''multiprocessing.cpu_count() - функция, которая считает количество ядер процессора '''
-        '''pr = multiprocessing.Process(target=compute_trajectory, args=(i,))
-        prc.append(pr)
-        pr.start()'''
-        '''for i in range(5):
-        p.apply_async(compute_trajectory, args=(i,)) #функция не возвращает прямого результата, требует отдельной функции для обработки результатов'''
-    ''' вариант с потоками, он ускоряет процесс, но не сильно, за счет эффективного управления ресурсами потока, 
-    это хорошо, но не то, что хотели
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        # Запускаем выполнение функции compute_trajectory для каждого i
-        futures = [executor.submit(compute_trajectory, i) for i in range(5)]'''
+'''v = m.sqrt(6.674 * 10**(-11) * 5.972 * 10**(24) / 6551000)
+print(v)'''
 
 
+# Исходные данные
+mu = 398600  # Гравитационный параметр Земли, км^3/с^2
+R_earth = 6371  # Радиус Земли, км
+h = 180  # Высота круговой орбиты, км
+delta_v = 0.5  # Прирост скорости, км/с
 
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    print(elapsed_time)
+# Вычисления базовых параметров
+r0 = R_earth + h  # Радиус перигея, км
+v_circular = np.sqrt(mu / r0)  # Круговая скорость, км/с
+v_initial = v_circular + delta_v  # Начальная скорость, км/с
+energy = v_initial**2 / 2 - mu / r0  # Полная удельная энергия, км^2/с^2
+
+# Определение типа орбиты
+v_parabolic = np.sqrt(2 * mu / r0)  # Параболическая скорость
+
+eccentricity = m.sqrt(1 + (v_circular**2 * (R_earth + h)**2 * energy) / mu**2)
+a = -mu / energy  # Большая полуось орбиты, км
+p = a * (1 - eccentricity**2)
+
+# Период обращения (для эллиптической орбиты)
+T = 2 * np.pi * np.sqrt(a**3 / mu)  # Период обращения, с
+
+# Уравнение Кеплера методом Ньютона
+def solve_kepler(M, e, tol=1e-9):
+    E = M  # Начальное приближение
+    while True:
+        delta_E = (E - e * np.sin(E) - M) / (1 - e * np.cos(E))
+        E -= delta_E
+        if abs(delta_E) < tol:
+            break
+    return E
+
+# Функции для расчета параметров орбиты
+def true_anomaly(E, e):
+    return 2 * np.arctan(np.sqrt((1 - e) / (1 + e)) * np.tan(E / 2))
 
 
-'''if __name__ == '__main__':
-    prc = []
-    for i in range(5):
-        prc.append(i+1) 
-    print(prc)
-    with multiprocessing.Pool(multiprocessing.cpu_count()) as p:
-        p.map(worker, list(range(5)))'''
+def radius(E, a, e):
+    return p / (1 + np.cos(E))
 
+def velocities(E, a, e, mu):
+    r = p / (1 + m.cos(true_anomaly(E, e)))
+    vt = np.sqrt(mu / p) * (1 + np.cos(true_anomaly(E, e))) # Трансверсальная скорость
+    vr = np.sqrt(mu / p) * e * np.sin(true_anomaly(E, e))  # Радиальная скорость
+    v = np.sqrt(vr ** 2 + vt ** 2)
+    return vt, vr, v
+
+# Временной массив
+time = np.linspace(0, T, 1000)
+mean_anomaly = 2 * np.pi * time / T
+
+# Расчеты для всех моментов времени
+ecc_anomalies = np.array([solve_kepler(M, eccentricity) for M in mean_anomaly])
+true_anomalies = np.array([true_anomaly(E, eccentricity) for E in ecc_anomalies])
+radii = np.array([radius(E, p, eccentricity) for E in ecc_anomalies])
+velocities_data = np.array([velocities(E, a, eccentricity, mu) for E in ecc_anomalies])
+
+# Распаковка скоростей
+vt_data = velocities_data[:, 0]
+vr_data = velocities_data[:, 1]
+v_data = velocities_data[:, 2]
+
+# Построение графиков
+plt.figure(figsize=(12, 10))
+
+# График радиуса
+plt.subplot(3, 2, 1)
+plt.plot(time, radii)
+plt.title('Радиус-вектор от времени')
+plt.xlabel('Время (с)')
+plt.ylabel('Радиус (км)')
+plt.grid(True)
+
+# График истинной аномалии
+plt.subplot(3, 2, 2)
+plt.plot(time, true_anomalies)
+plt.title('Истинная аномалия от времени')
+plt.xlabel('Время (с)')
+plt.ylabel('Истинная аномалия (рад)')
+plt.grid(True)
+
+# График модуля скорости
+plt.subplot(3, 2, 3)
+plt.plot(time, v_data)
+plt.title('Модуль скорости от времени')
+plt.xlabel('Время (с)')
+plt.ylabel('Скорость (км/с)')
+plt.grid(True)
+
+# График трансверсальной скорости
+plt.subplot(3, 2, 4)
+plt.plot(time, vt_data)
+plt.title('Трансверсальная скорость от времени')
+plt.xlabel('Время (с)')
+plt.ylabel('Скорость (км/с)')
+plt.grid(True)
+
+# График радиальной скорости
+plt.subplot(3, 2, 5)
+plt.plot(time, vr_data)
+plt.title('Радиальная скорость от времени')
+plt.xlabel('Время (с)')
+plt.ylabel('Скорость (км/с)')
+plt.grid(True)
+
+# График эксцентрической аномалии
+plt.subplot(3, 2, 6)
+plt.plot(time, ecc_anomalies)
+plt.title('Эксцентрическая аномалия от времени')
+plt.xlabel('Время (с)')
+plt.ylabel('Аномалия (рад)')
+plt.grid(True)
+
+plt.tight_layout()
+plt.show()
