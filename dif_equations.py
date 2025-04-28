@@ -56,6 +56,230 @@ class Difur:
     def stabilization_max_speed_apsid(self, e, atta):# максимальная скорость вращения линии аписд
         return m.atan(-(m.sin(atta) / m.cos(atta)) * ((2 + e * m.cos(atta)) / (1 + e * m.cos(atta))))
 
+
+    def gravi_perturbations(self, initial):
+        r = initial['r']
+        i = initial['i']
+        u = initial['u']
+        S = -1.5 * J2 * cMu * cRe ** 2 / r ** 4 * (1 - 3 * m.sin(i) ** 2 * m.sin(u) ** 2)
+        T = -3 * J2 * cMu * cRe ** 2 / r ** 4 * m.sin(i) ** 2 * m.sin(u) * m.cos(u)
+        W = -3 * J2 * cMu * cRe ** 2 / r ** 4 * m.sin(i) * m.cos(i) * m.sin(u)
+
+        return S, T, W
+
+    def atmospheric_acceleration(self, initial):
+        """Вычисляет компоненты аэродинамического ускорения (S, T, W)"""
+        Ca = initial["Ca"]
+        S_surf = initial["S"]  # Площадь поперечного сечения (м²)
+        mass = 100  # кг
+
+        # Орбитальные параметры
+        r_km = initial["r"]  # в км
+        a_km = initial["a"]  # большая полуось (в км)
+        h_km = r_km - 6371
+
+        if h_km > 1500:
+            return 0, 0, 0
+
+        # Перевод в метры
+        r = r_km * 1000
+        a = a_km * 1000
+
+        # Константы атмосферы
+        H = 8.5e3  # м
+        ρ0 = 1.225  # кг/м³
+        h = r - 6371e3  # м
+
+        # Атмосферная плотность
+        ρ = ρ0 * m.exp(-h / H)
+
+        # Скорость на эллиптической орбите
+        μ = cMu * 1e9  # Приводим к м³/с²
+        v = m.sqrt(μ * (2 / r - 1 / a))  # м/с
+
+        # Аэродинамическое ускорение
+        a_drag = 0.5 * Ca * (S_surf / mass) * ρ * v ** 2
+
+        # Воздействие по трансверсальной оси (вдоль вектора скорости)
+        return 0, -a_drag, 0
+
+
+    def da_func(self, initial):  # большая полуось
+        F = initial['F']
+        lam = initial['lam']
+        beta = m.pi / 2
+        e = initial['e']
+        p = initial['p']
+        atta = initial['atta']
+        r = initial['r']
+        i = initial['i']
+        u = initial['u']
+
+        S, T, W = self.atmospheric_acceleration(initial) # ускорения от атмосферных возмущений
+        #S, T, W = self.gravi_perturbations(initial) # гравитационные возмущения
+
+        try:
+            derivative = float((2 * p / (1 - e) ** 2) * m.sqrt(p / cMu) * (e * m.sin(atta) * S + (1 + e * m.cos(atta)) * T))
+            return derivative, 'a'
+        except (ValueError, ZeroDivisionError) as e:
+            print(f"Error in radius: {e}")
+
+    def de_func(self, initial):  # эксцентриситет
+        F = initial['F']
+        lam = initial['lam']
+        beta = m.pi / 2
+        p = initial['p']
+        e = initial['e']
+        atta = initial['atta']
+        r = initial['r']
+        i = initial['i']
+        u = initial['u']
+
+        S, T, W = self.atmospheric_acceleration(initial) # ускорения от атмосферных возмущений
+        #S, T, W = self.gravi_perturbations(initial) # гравитационные возмущения
+
+        try:
+            derivative = float(m.sqrt(p / cMu) * (S * m.sin(atta) + T * ((1 + r / p) * m.cos(atta) + e * (r / p))))
+            #derivative = float(m.sqrt(p / cMu) * (S * m.sin(atta) + ((e * m.cos(atta) ** 2 + 2 * m.cos(atta) + e) / (1 + e * m.cos(atta))) * T))
+            return derivative, 'e'
+        except (ValueError, ZeroDivisionError) as e:
+            print(f"Error in eccen: {e}")
+
+    def di_func(self, initial):  # наклонение
+        F = initial['F']
+        beta = m.pi / 2
+        p = initial['p']
+        e = initial['e']
+        atta = initial['atta']
+        u = initial['u']
+        r = initial['r']
+        i = initial['i']
+
+        S, T, W = self.atmospheric_acceleration(initial) # ускорения от атмосферных возмущений
+        #S, T, W = self.gravi_perturbations(initial) # гравитационные возмущения
+        try:
+            derivative = float(m.sqrt(p / cMu) * (m.cos(u) / (1 + e * m.cos(atta))) * W)
+            return derivative, 'i'
+        except (ValueError, ZeroDivisionError) as e:
+            print(f"Error in i: {e}")
+
+    def domega_func(self, initial):  # аргумент перицентра
+        F = initial['F']
+        lam = initial['lam']
+        beta = m.pi / 2
+        a = initial['a']
+        p = initial['p']
+        e = initial['e']
+        atta = initial['atta']
+        u = initial['u']
+        i = initial['i']
+        r = initial['r']
+        omega = initial['omega']
+
+        S, T, W = self.atmospheric_acceleration(initial) # ускорения от атмосферных возмущений
+        #S, T, W = self.gravi_perturbations(initial) # гравитационные возмущения
+        try:
+            if e == 0:  # круговая орбита
+                derivative = 0
+                return derivative, 'omega'
+            else:  # эллиптическая орбита
+                derivative = float((1 / e) * m.sqrt(p / cMu) * (-S * m.cos(atta) + (m.sin(atta) * (2 + e * m.cos(atta)) /
+                    (1 + e * m.cos(atta))) * T - ((e * m.sin(u) / m.tan(i)) / (1 + e * m.cos(atta))) * W))
+            return derivative, 'omega'
+        except (ValueError, ZeroDivisionError) as e:
+            print(f"Error in omega: {e}")
+
+    def dascnode_func(self, initial):  # долгота восходящего узла
+        F = initial['F']
+        beta = m.pi / 2
+        p = initial['p']
+        e = initial['e']
+        atta = initial['atta']
+        u = initial['u']
+        i = initial['i']
+        r = initial['r']
+
+        S, T, W = self.atmospheric_acceleration(initial) # ускорения от атмосферных возмущений
+        #S, T, W = self.gravi_perturbations(initial) # гравитационные возмущения
+        try:
+            derivative = float(m.sqrt(p / cMu) * (m.sin(u) / ((1 + e * m.cos(atta)) * m.sin(i)) * W))
+            #derivative = 2 * m.pi / (365.2422 * 86400)
+            return derivative, 'ascnode'
+        except (ValueError, ZeroDivisionError) as e:
+            print(f"Error in radius: {e}")
+    def du_func(self, initial):  # аргумент широты
+        F = initial['F']
+        beta = m.pi / 2
+        p = initial['p']
+        e = initial['e']
+        atta = initial['atta']
+        u = initial['u']
+        i = initial['i']
+        r = initial['r']
+
+        S, T, W = self.atmospheric_acceleration(initial) # ускорения от атмосферных возмущений
+        #S, T, W = self.gravi_perturbations(initial) # гравитационные возмущения
+        try:
+            if e == 0:
+                derivative = 0
+            else:
+                term1 = (1 + e * m.cos(atta)) ** 2
+                term2 = W * ((p ** 2) / (cMu * (1 + e * m.cos(atta)))) * (1 / m.tan(i)) * m.sin(u)
+                derivative = float((m.sqrt(cMu * p) / p ** 2) * (term1 - term2))
+            return derivative, 'u'
+        except (ValueError, ZeroDivisionError) as e:
+            print(f"Error in u: {e}")
+
+
+    def datta_func(self, initial):  # истинная аномалия
+        F = initial['F']
+        lam = initial['lam']
+        e = initial['e']
+        p = initial['p']
+        atta = initial['atta']
+        r = initial['r']
+        beta = m.pi / 2
+        u = initial['u']
+        i = initial['i']
+        a = initial['a']
+
+        S, T, W = self.atmospheric_acceleration(initial) # ускорения от атмосферных возмущений
+        #S, T, W = self.gravi_perturbations(initial) # гравитационные возмущения
+        try:
+            if e == 0:  # круговая орбита
+                derivative = m.sqrt(cMu / a ** 3) + (2 / m.sqrt(cMu * a)) * T
+            else:
+                derivative = float((m.sqrt(cMu * p) / (r ** 2)) + (1 / e) * m.sqrt(p / cMu) * (S * m.cos(atta) + T * m.sin(atta)) * (1 + r / p))
+            return derivative, 'atta'
+        except (ValueError, ZeroDivisionError) as e:
+            print(f"Error in atta: {e}")
+
+
+    def atta_func(self, initial):
+        u = initial['u']
+        atta = initial['atta']
+        e = initial['e']
+        omega = initial['omega']
+        a = initial['a']
+
+        if u > 2 * m.pi:
+            u %= (2 * m.pi)
+        if u < 0:
+            u += 2 * m.pi
+
+        atta = u - omega
+        if atta >= m.pi:
+            atta -= (2 * m.pi)
+        if atta <= - m.pi:
+            atta += 2 * m.pi
+        p = a * (1 - e ** 2)
+
+        r = p / (1 + e * m.cos(atta))
+        print(atta, u, r, p)
+        return atta, u, r, p
+
+
+    '''  смешивает ключи и неверно интерпретирует уравнения
     def de_func(self, initial):  # эксцентриситет
         F = initial['F']
         lam = initial['lam']
@@ -96,8 +320,8 @@ class Difur:
         derivative = float((m.sqrt(cMu * p) / (r ** 2)) + ((F * m.cos(atta)) / e) * m.sqrt(p / cMu) * m.cos(lam)
                            - ((F * m.sin(atta)) / e) * (1 + r / p) * m.sqrt(p / cMu) * m.sin(lam))
         return derivative, 'atta'
-
-    def runge_kutta_4(self, equations, initial, dt, dx):
+        '''
+    def runge_kutta_1(self, equations, initial, dt, dx):
         '''equations - это список названий функций с уравнениями для системы
         initial это переменные с начальными условиями
         dx - это список переменных, которые будут использованы для интегрирования уравнения'''
@@ -118,6 +342,7 @@ class Difur:
             k1[key] += derivative
             derivatives_1[key] = initial[key] + derivative * dt / 2
             derivatives_1[dx[i]] += dt / 2
+            #derivatives_1['atta'], derivatives_1['u'], derivatives_1['r'], derivatives_1['p'] = self.atta_func(initial)
             # derivatives_1 = {key: value / 2 for key, value in derivatives_1.items()}
 
         for i, eq in enumerate(equations):
@@ -125,6 +350,7 @@ class Difur:
             k2[key] += derivative
             derivatives_2[key] = initial[key] + derivative * dt / 2
             derivatives_2[dx[i]] += dt / 2
+            #derivatives_2['atta'], derivatives_2['u'], derivatives_2['r'], derivatives_2['p'] = self.atta_func(derivatives_1)
             # derivatives_2 = {key: value / 2 for key, value in derivatives_2.items()}
 
         for i, eq in enumerate(equations):
@@ -132,6 +358,7 @@ class Difur:
             k3[key] += derivative
             derivatives_3[key] = initial[key] + derivative * dt
             derivatives_3[dx[i]] += dt
+            #derivatives_3['atta'], derivatives_3['u'], derivatives_3['r'], derivatives_3['p'] = self.atta_func(derivatives_2)
 
         for i, eq in enumerate(equations):
             derivative, key = eq(derivatives_3)
@@ -140,12 +367,65 @@ class Difur:
             new_values[i] = initial[key] + (1 / 6) * dt * (k1[key] + 2 * k2[key] + 2 * k3[key] + k4[key])
         return new_values
 
+    def runge_kutta_4(self, equations, initial, dt, dx):
+        k1 = {key: 0 for key in dx}
+        k2 = {key: 0 for key in dx}
+        k3 = {key: 0 for key in dx}
+        k4 = {key: 0 for key in dx}
+
+        # k1
+        for eq in equations:
+            derivative, key = eq(initial)
+            if key in dx:
+                k1[key] = derivative
+
+        # k2
+        state_k2 = initial.copy()
+        for key in dx:
+            state_k2[key] += dt / 2 * k1[key]
+
+        for eq in equations:
+            derivative, key = eq(state_k2)
+            if key in dx:
+                k2[key] = derivative
+
+        # k3
+        state_k3 = initial.copy()
+        for key in dx:
+            state_k3[key] += dt / 2 * k2[key]
+
+        for eq in equations:
+            derivative, key = eq(state_k3)
+            if key in dx:
+                k3[key] = derivative
+
+        # k4
+        state_k4 = initial.copy()
+        for key in dx:
+            state_k4[key] += dt * k3[key]
+
+        for eq in equations:
+            derivative, key = eq(state_k4)
+            if key in dx:
+                k4[key] = derivative
+
+        # итоговое обновление только для переменных из dx
+        new_values = []
+        for key in dx:
+            new_val = initial[key] + (dt / 6) * (
+                    k1[key] + 2 * k2[key] + 2 * k3[key] + k4[key]
+            )
+            new_values.append(new_val)
+
+        return new_values
+
+
     def euler(self, equations, initial, dt, dx):
         # в equations пишем названия функций с уравнениями, а в initial пишем все переменные, которые нам нужны
         new_value_list = [0] * len(equations)
 
         for i, eq in enumerate(equations):
-            derivative, key = eq(initial, dt)
+            derivative, key = eq(initial)
             new_value_list[i] = initial[key] + derivative * dt  # Обновляем значение переменной по индексу
 
         return new_value_list
@@ -159,12 +439,12 @@ class Difur:
         initial это переменные с начальными условиями
         dx - это список переменных, которые будут использованы для интегрирования уравнения'''
         for eq in equations:
-            derivative, key = eq(initial, dt)
+            derivative, key = eq(initial)
             k1[key] += derivative  # полшага
             derivatives_1[key] = initial[key] + derivative * dt
         for i, eq in enumerate(equations):
             derivatives_1[dx[i]] += dt
-            derivative_2, key = eq(derivatives_1, dt)
+            derivative_2, key = eq(derivatives_1)
             k2[key] += derivative_2
             new_value_list[i] = initial[key] + ((dt / 2) * (k1[key] + k2[key]))
 

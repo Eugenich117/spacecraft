@@ -14,6 +14,7 @@ import dif_equations as DE
 import numpy as np
 from PIL import Image
 import threading
+from tqdm import tqdm
 #import matplotlib.image as mpimg
 
 data = {}
@@ -170,6 +171,11 @@ def correction():
     data["stabelize"] = str(combo_stabelize.get())
     data["mass"] = int(combo_mass.get())
     data["direction"] = str(combo_direction.get())
+    data["S"] = float(combo_square.get())
+    data["Ca"] = 3.5
+
+    #заполнялось для лабы по теории полета
+
 
     try:
         check_data(data)
@@ -184,19 +190,27 @@ def correction():
     if float(combo_interval.get()) == 0:
         data["interval"] = orb.period()
     my_time = 0
-    time_step = orb.step
-    X = []; A =[]; P = []; E = []; R = []; OM = []; Lon = []; Lat = []
-    e, omega, atta, p = data["e"], data["ArgPerigee"], orb.true_anomaly(), orb.parameter()
+    time_step = data["step"]
+    time_stop = data["interval"] + my_time #orb.period()
+    X = []; A =[]; P = []; E = []; R = []; OM = []; Lon = []; Lat = []; ASCNODE = []; ARGLAT = []; INCL = [];
+    ATTA = []; T = []; W_list = []; T_list = []; S_list = []; OVER_GOAL = []
+    a, e, i, omega, ascnode, u, atta, p = orb.semi_major_axis(), data["e"], data["Incl"], data["ArgPerigee"], data["AscNode"], data["ArgLat"], orb.true_anomaly(), orb.parameter()
 
-    if atta > 2 * m.pi:
+    if atta > m.pi:
         atta %= (2 * m.pi)
-    if atta < 0:
+    if atta < -m.pi:
         atta += 2 * m.pi
 
     counter = 0
-    r = (p / (1 + e * m.cos(atta)))
+    #r = (p / (1 + e * m.cos(atta)))
+    r = orb.radius()
     initial = data.copy()
+    initial["a"] = a
+    initial["e"] = e
+    initial["i"] = i
     initial["omega"] = omega
+    initial["ascnode"] = ascnode
+    initial["u"] = u
     initial["atta"] = atta
     initial["p"] = p
     initial["r"] = r
@@ -222,11 +236,11 @@ def correction():
         "Рунге-Кутты 4": eq.runge_kutta_4,
     }
 
-    equations = [eq.de_func, eq.dp_func, eq.domega_func, eq.datta_func]
+    equations = [eq.da_func, eq.de_func, eq.di_func, eq.domega_func, eq.dascnode_func, eq.du_func, eq.datta_func]
     span = 0
+    progress_bar = tqdm(total=time_stop, unit='s', desc="Вычисление орбиты")
 
-    while my_time < data["interval"]:
-
+    while my_time <= time_stop:
         if data["turn"] <= my_time <= (data["turn"] + data["work"]):
             F = data["thrust"]/data["mass"]/1000
 
@@ -242,42 +256,55 @@ def correction():
 
         initial["F"] = F
         initial["lam"] = lam
-        dx =['e', 'p', 'omega', 'atta']
+        dx =['a', 'e', 'i', 'omega', 'ascnode', 'u', 'atta']
         if data["integr"] in intearated_methods:
             values = intearated_methods[data["integr"]](equations, initial, data["step"], dx)
 
-        e = values[0]
-        p = values[1]
-        omega = values[2]
-        atta = values[3]
-
-        if atta > 2 * m.pi:
-            atta %= (2 * m.pi)
-        if atta < 0:
+        a = values[0]
+        e = values[1]
+        i = values[2]
+        omega = values[3]
+        ascnode = values[4]
+        u = values[5]
+        p = a * (1 - e ** 2)
+        atta = values[6]
+        #atta = u - omega
+        if atta >=  m.pi:
+            atta -= (2 * m.pi)
+        if atta <= - m.pi:
             atta += 2 * m.pi
 
-        arglat = omega + atta
-        if arglat > 2 * m.pi:
-            arglat %= (2 * m.pi)
-        if arglat < 0:
-            arglat += 2 * m.pi
-        r = p / (1 + e * m.cos(atta))
-        a = p / (1 - e ** 2)
+        #arglat = omega + atta
+        if u > 2 * m.pi:
+            u %= (2 * m.pi)
+        if u < 0:
+            u += 2 * m.pi
 
+        '''if omega > 2 * m.pi:
+            omega %= (2 * m.pi)
+        if omega < 0:
+            omega += 2 * m.pi'''
+        r = p / (1 + e * m.cos(atta))
+        #print(f"e = {e}, omega = {omega*cToDeg}, a = {(p / (1 - e ** 2))}, u = {u *cToDeg}, ascnode = {ascnode*cToDeg}")
         #еще ода вариация из одной и той же методички (результаты обе формулы дают одинаковые)
         #a = (cMu / ((2 * m.pi) / (2 * m.pi * (p / (1 - e ** 2)) * m.sqrt((p / (1 - e ** 2)) / cMu))) ** 2) ** (1 / 3)
+        initial["a"] = a
         initial["e"] = e
+        initial["i"] = i
         initial["omega"] = omega
-        initial["atta"] = atta
+        initial["ascnode"] = ascnode
+        initial["u"] = u
         initial["p"] = p
+        initial["atta"] = atta
         initial["r"] = r
-        A.append(a); P.append(p); E.append(e); R.append(r); OM.append(omega * cToDeg); X.append(my_time)
+        A.append(a); P.append(p); E.append(e); R.append(r); OM.append(omega * cToDeg); X.append(my_time); T.append(my_time)
+        ASCNODE.append(ascnode * cToDeg); ARGLAT.append(u * cToDeg); INCL.append(i * cToDeg); ATTA.append(atta * cToDeg)
 
         data_correction["Rp"] = p / (1 + e)
         data_correction["e"] = e
-        data_correction["ArgLat"] = arglat #аргумент широты
-        data_correction["Incl"] = float(combo_Incl.get()) * cToRad
-        data_correction["AscNode"] = float(combo_AscNode.get()) * cToRad #долгоа восходящего узла
+        data_correction["ArgLat"] = u #аргумент широты
+        data_correction["Incl"] = i
+        data_correction["AscNode"] = ascnode #долгота восходящего узла
         data_correction["ArgPerigee"] = omega
         data_correction["step"] = float(combo_step.get())
         result_class_dict_graf, result_dict_graf = calc.update(data_correction, my_time)
@@ -285,21 +312,109 @@ def correction():
         Latitude = result_dict_graf['Latitude'] * cToDeg
         Lon.append(Longitude); Lat.append(Latitude)
         my_time += time_step
+
+        #S, Transvers, W = eq.atmospheric_acceleration(initial)  # ускорения от атмосферных возмущений
+        S = -1.5 * J2 * cMu * cRe ** 2 / r ** 4 * (1 - 3 * m.sin(i) ** 2 * m.sin(u) ** 2)
+        Transvers = -3 * J2 * cMu * cRe ** 2 / r ** 4 * m.sin(i) ** 2 * m.sin(u) * m.cos(u)
+        W = -3 * J2 * cMu * cRe ** 2 / r ** 4 * m.sin(i) * m.cos(i) * m.sin(u)
+        S_list.append(S), T_list.append(Transvers), W_list.append(W)
         counter += 1
         if 33 <= Longitude <= 40 and 46 <= Latitude <= 52:
             span += 1
+            OVER_GOAL.append(my_time)
             print(f"Время прохождения над территорией {my_time}")
+            print(f"e = {e}, omega = {omega*cToDeg}, a = {a}, u = {u *cToDeg}, ascnode = {ascnode*cToDeg}")
+        progress_bar.n = my_time
+        progress_bar.set_postfix({
+            'Шаг': counter,
+            'Широта': f"{Latitude:.2f}°",
+            'Долгота': f"{Longitude:.2f}°",
+            'Над целью': span
+        })
+        progress_bar.refresh()
 
+        my_time += time_step
+        counter += 1
+    print(OVER_GOAL)
+    progress_bar.close()
     enable_all_buttons()
     end_time = time.time()
     elapsed_time = end_time - start_time
-
     memo1.insert("end", f"Время работы graf: {elapsed_time} секунд\n")
     memo1.insert("end", f"Количество итераций:{counter}\n")
     memo1.insert("end", f"Количество пролетов: {span} раз\n")
-    save_to_excel(A, P, E, R, OM, X)
+    save_to_excel(A, P, E, R, OM, ASCNODE, ARGLAT, INCL, ATTA, OVER_GOAL, X)
     plot_graphs_with_scrollbar(X, A, P, E, R, OM, Lon, Lat)
 
+    plt.plot(Lon, Lat)
+    plt.title('Трасса')
+    plt.xlabel('Время')
+    plt.ylabel('Скорость')
+    plt.grid(True)
+    plt.show()
+
+    plt.plot(T, ASCNODE)
+    plt.title('Долгота восходящего узла')
+    plt.xlabel('Время')
+    plt.ylabel('Omega, c')
+    plt.grid(True)
+    plt.show()
+
+    plt.plot(T, P)
+    plt.title('Фокальный параметр')
+    plt.xlabel('Время, с')
+    plt.ylabel('Р, км')
+    plt.grid(True)
+    plt.show()
+
+    plt.plot(T, OM)
+    plt.title('Аргумент перицентра')
+    plt.xlabel("Время, с")
+    plt.ylabel('omega, град')
+    plt.grid(True)
+    plt.show()
+
+    plt.plot(T, ARGLAT)
+    plt.title('Аргумент широты')
+    plt.xlabel("Время")
+    plt.ylabel('U, град')
+    plt.grid(True)
+    plt.show()
+
+    plt.plot(T, E)
+    plt.title('Эксцентриситет')
+    plt.xlabel("Время")
+    plt.ylabel('е')
+    plt.grid(True)
+    plt.show()
+
+    plt.plot(T, INCL)
+    plt.title('Наклонение')
+    plt.xlabel('Время')
+    plt.ylabel('i, град')
+    plt.grid(True)
+    plt.show()
+
+    plt.plot(T, S_list)
+    plt.title('S')
+    plt.xlabel("Время")
+    plt.ylabel('S')
+    plt.grid(True)
+    plt.show()
+
+    plt.plot(T, T_list)
+    plt.title('T')
+    plt.xlabel("Время")
+    plt.ylabel('T')
+    plt.grid(True)
+    plt.show()
+
+    plt.plot(T, W_list)
+    plt.title('W')
+    plt.xlabel("Время")
+    plt.ylabel('W')
+    plt.grid(True)
+    plt.show()
 
 def indignant():
     '''снести к хуям эту ебаную хуйню, все блять по формулам правильно, но по результатам нихуя оно не правильно '''
@@ -325,7 +440,7 @@ def indignant():
     calc = cl.TSpacecraft(data)
     orb = cl.TOrbitClass(data)
     my_time = datetime.datetime.now().timestamp()
-    end_time = my_time + orb.period() #data["interval"]
+    end_time = my_time + data["interval"] #+ orb.period()
     time_step = orb.step
     norm_time = 0
     V = []
@@ -558,7 +673,7 @@ def save_to_file():
         with open(file_path, "w") as file:
             file.write(data)
 
-def save_to_excel(A, P, E, R, OM, X, step = 10):
+def save_to_excel(A, P, E, R, OM, ASCNODE, ARGLAT, INCL, ATTA, OVER_GOAL, X, step = 1):
     # Создаем новый рабочий лист
     wb = Workbook()  # Создаем новый объект Workbook от openpyxl
     ws = wb.active  # Делаем активным первый (и единственный) лист в новой книге
@@ -590,7 +705,7 @@ def save_to_excel(A, P, E, R, OM, X, step = 10):
         ws[f'B{i}'] = value  # Записываем значение параметра в колонку B
 
     # Заголовки для массивов данных
-    headers = ["Время", "a", "p", "e", "r", "omega"]  # Список заголовков для данных
+    headers = ["Время", "a", "p", "e", "r", "omega", "u", "i", "ascnode", "atta", 'time_visvion']  # Список заголовков для данных
     for col_num, header in enumerate(headers, start=1):
         ws.cell(row=len(data) + 2, column=col_num, value=header)  # Записываем заголовки в строку, следующую за параметрами
 
@@ -611,7 +726,17 @@ def save_to_excel(A, P, E, R, OM, X, step = 10):
             ws.cell(row=start_row + row_num // step, column=5, value=R[row_num])  # Записываем данные r
         if row_num < len(OM):
             ws.cell(row=start_row + row_num // step, column=6, value=OM[row_num])  # Записываем данные omega
+        if row_num < len(ARGLAT):
+            ws.cell(row=start_row + row_num // step, column=7, value=ARGLAT[row_num])  # Записываем данные ARGLAT
+        if row_num < len(INCL):
+            ws.cell(row=start_row + row_num // step, column=8, value=INCL[row_num])  # Записываем данные INCL
+        if row_num < len(ASCNODE):
+            ws.cell(row=start_row + row_num // step, column=9, value=ASCNODE[row_num])  # Записываем данные ASCNODE
+        if row_num < len(ATTA):
+            ws.cell(row=start_row + row_num // step, column=10, value=ATTA[row_num])  # Записываем данные ATTA
 
+    for i, val in enumerate(OVER_GOAL):
+        ws.cell(row=start_row + i, column=11, value=val)
     '''#Добавляем текст из memo, если надо взять значения без шага, а сразу все 
     memo_text = memo1.get('1.0', 'end')  # Получаем текст из memo
     memo_start_row = start_row + (max_len // step) + 2  # Определяем начальную строку для memo
@@ -687,14 +812,14 @@ my_canvas.bind_all("<MouseWheel>", mouse_wheel)  # Для Windows
 label_Rp = Label(second_frame, text="Введите большую полуось", font=("Times New Roman", 12), fg="blue")
 label_Rp.pack()
 combo_Rp = Combobox(second_frame)
-combo_Rp['values'] = (8000.0, 20_000.0, 42_000.0, "Свое значение")
+combo_Rp['values'] = (6939, 8000.0, 20_000.0, 42_000.0, "Свое значение")
 combo_Rp.current(0)
 combo_Rp.pack(padx=330)
 
 label_e = Label(second_frame, text="Введите эксцентриситет", font=("Times New Roman", 12), fg="blue")
 label_e.pack()
 combo_e = Combobox(second_frame)
-combo_e['values'] = (0.6, 0.05, 0.03, "Свое значение")
+combo_e['values'] = (0.6, 0.05, 0.003, "Свое значение")
 combo_e.current(2)
 combo_e.pack()
 
@@ -705,11 +830,11 @@ combo_ArgLat['values'] = (90.0, 60.0, 20.0, "Свое значение")
 combo_ArgLat.current(0)
 combo_ArgLat.pack()
 
-label_ArgPerig = Label(second_frame, text="Введите аргумент Перигея, град", font=("Times New Roman", 12), fg="blue")
+label_ArgPerig = Label(second_frame, text="Введите аргумент Перицентра, град", font=("Times New Roman", 12), fg="blue")
 label_ArgPerig.pack()
 combo_ArgPerig = Combobox(second_frame)
-combo_ArgPerig['values'] = (60.0, 270.0, 90.0, "Свое значение")
-combo_ArgPerig.current(1)
+combo_ArgPerig['values'] = (60.0, 270.0, 0.0, "Свое значение")
+combo_ArgPerig.current(2)
 combo_ArgPerig.pack()
 
 label_AscNode = Label(second_frame, text="Введите долготу восходящего узла, град", font=("Times New Roman", 12), fg="blue")
@@ -722,14 +847,14 @@ combo_AscNode.pack()
 label_Incl = Label(second_frame, text="Введите Наклонение орбиты, град", font=("Times New Roman", 12), fg="blue")
 label_Incl.pack()
 combo_Incl = Combobox(second_frame)
-combo_Incl['values'] = (10, 20, 60, "Свое значение")
+combo_Incl['values'] = (10, 98, 63.5, "Свое значение")
 combo_Incl.current(1)
 combo_Incl.pack()
 
 label_step = Label(second_frame, text="Введите шаг моделирования графика, секунд", font=("Times New Roman", 12), fg="blue")
 label_step.pack()
 combo_step = Combobox(second_frame)
-combo_step['values'] = (20, 30, 60, "Свое значение")
+combo_step['values'] = (10, 30, 60, "Свое значение")
 combo_step.current(0)
 combo_step.pack()
 
@@ -743,8 +868,8 @@ combo_mass.pack()
 label_thrust = Label(second_frame, text="Введите тягу двигателя", font=("Times New Roman", 12), fg="blue")
 label_thrust.pack()
 combo_thrust = Combobox(second_frame)
-combo_thrust['values'] = (1, 5, 10, "Свое значение")
-combo_thrust.current(2)
+combo_thrust['values'] = (0, 5, 10, "Свое значение")
+combo_thrust.current(0)
 combo_thrust.pack()
 
 label_integr = Label(second_frame, text="Выберете метод интегрирования", font=("Times New Roman", 12), fg="blue")
@@ -757,8 +882,8 @@ combo_integr.pack()
 label_interval = Label(second_frame, text="Введите интервал интегрирования, с", font=("Times New Roman", 12), fg="blue")
 label_interval.pack()
 combo_interval = Combobox(second_frame)
-combo_interval['values'] = (84325, 55000, 7200, "Свое значение")
-combo_interval.current(2)
+combo_interval['values'] = (84325, 55000, 604800, 7200, "Свое значение")
+combo_interval.current(0)
 combo_interval.pack()
 
 label_work = Label(second_frame, text="Введите время работы двигателя", font=("Times New Roman", 12), fg="blue")

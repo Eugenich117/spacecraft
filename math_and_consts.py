@@ -3,6 +3,7 @@ import math as m
 #модуль математики
 
 # Constants
+J2 = 1.08263e-3  # для Земли
 cRe = 6371.210  # EarthMeanRadius in km
 cW = 0.7292115E-4  # Angular velocity of Earth rotation in 1/s
 cMu = 398603  # km^3/s^2
