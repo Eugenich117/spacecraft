@@ -169,10 +169,12 @@ def correction():
     data["work"] = float(combo_work.get())
     data["turn"] = float(combo_turn.get())
     data["stabelize"] = str(combo_stabelize.get())
+    data["perturbation"] = str(combo_perturbation.get())
     data["mass"] = int(combo_mass.get())
     data["direction"] = str(combo_direction.get())
     data["S"] = float(combo_square.get())
-    data["Ca"] = 3.5
+    data["Cx"] = float(combo_Cx.get())
+
 
     #заполнялось для лабы по теории полета
 
@@ -215,6 +217,11 @@ def correction():
     initial["p"] = p
     initial["r"] = r
 
+    perturbation_algoritms = {
+        "none": eq.none_perturbations,
+        "atmosphere": eq.atmospheric_acceleration,
+        "gravy": eq.gravi_perturbations
+    }
     stabilization_algorithms = {
         "Постоянство эксцентриситета": eq.stabilization_esccentr,
         "Максимальная скорость изменения эксцентриситета": eq.stabilization_max_speed_esccentr,
@@ -280,10 +287,10 @@ def correction():
         if u < 0:
             u += 2 * m.pi
 
-        '''if omega > 2 * m.pi:
+        if omega > 2 * m.pi:
             omega %= (2 * m.pi)
         if omega < 0:
-            omega += 2 * m.pi'''
+            omega += 2 * m.pi
         r = p / (1 + e * m.cos(atta))
         #print(f"e = {e}, omega = {omega*cToDeg}, a = {(p / (1 - e ** 2))}, u = {u *cToDeg}, ascnode = {ascnode*cToDeg}")
         #еще ода вариация из одной и той же методички (результаты обе формулы дают одинаковые)
@@ -313,10 +320,9 @@ def correction():
         Lon.append(Longitude); Lat.append(Latitude)
         my_time += time_step
 
-        #S, Transvers, W = eq.atmospheric_acceleration(initial)  # ускорения от атмосферных возмущений
-        S = -1.5 * J2 * cMu * cRe ** 2 / r ** 4 * (1 - 3 * m.sin(i) ** 2 * m.sin(u) ** 2)
-        Transvers = -3 * J2 * cMu * cRe ** 2 / r ** 4 * m.sin(i) ** 2 * m.sin(u) * m.cos(u)
-        W = -3 * J2 * cMu * cRe ** 2 / r ** 4 * m.sin(i) * m.cos(i) * m.sin(u)
+        if data["perturbation"] in perturbation_algoritms:
+            S, Transvers, W = perturbation_algoritms[data["perturbation"]](initial)
+
         S_list.append(S), T_list.append(Transvers), W_list.append(W)
         counter += 1
         if 33 <= Longitude <= 40 and 46 <= Latitude <= 52:
@@ -345,6 +351,106 @@ def correction():
     memo1.insert("end", f"Количество пролетов: {span} раз\n")
     save_to_excel(A, P, E, R, OM, ASCNODE, ARGLAT, INCL, ATTA, OVER_GOAL, X)
     plot_graphs_with_scrollbar(X, A, P, E, R, OM, Lon, Lat)
+
+    '''def beautified_plot(x, y, title, xlabel, ylabel, color='tab:blue'):
+        plt.figure(figsize=(8, 5))
+        plt.plot(x, y, color=color, linewidth=2)
+        plt.title(title, fontsize=14)
+        plt.xlabel(xlabel, fontsize=12)
+        plt.ylabel(ylabel, fontsize=12)
+        plt.grid(True, linestyle='--', alpha=0.6)
+        plt.tight_layout()
+        plt.show()
+
+    colors = ['tab:orange'] #, 'tab:orange', 'tab:green', 'tab:red', 'tab:purple','tab:brown', 'tab:pink', 'tab:gray', 'tab:olive', 'tab:cyan'
+
+    beautified_plot(Lon, Lat, 'Трасса', 'Долгота', 'Широта', color=colors[0])
+    beautified_plot(T, ASCNODE, 'Долгота восходящего узла', 'Время', 'Omega, °', color=colors[0])
+    beautified_plot(T, P, 'Фокальный параметр', 'Время, с', 'P, км', color=colors[0])
+    beautified_plot(T, OM, 'Аргумент перицентра', 'Время, с', 'omega, °', color=colors[0])
+    beautified_plot(T, ARGLAT, 'Аргумент широты', 'Время', 'U, °', color=colors[0])
+    beautified_plot(T, E, 'Эксцентриситет', 'Время', 'e', color=colors[0])
+    beautified_plot(T, INCL, 'Наклонение', 'Время', 'i, °', color=colors[0])
+    beautified_plot(T, S_list, 'S', 'Время', 'S', color=colors[0])
+    beautified_plot(T, T_list, 'T', 'Время', 'T', color=colors[0])
+    beautified_plot(T, W_list, 'W', 'Время', 'W', color=colors[0])'''
+
+    ''' # Настройка общего стиля
+    plt.style.use('seaborn-v0_8')  # или 'ggplot', 'seaborn', 'fivethirtyeight'
+    plt.rcParams['figure.figsize'] = (10, 6)  # Размер графиков
+    plt.rcParams['lines.linewidth'] = 2  # Толщина линий
+    plt.rcParams['grid.alpha'] = 0.3  # Прозрачность сетки
+
+    # --- 2. Долгота восходящего узла ---
+    plt.figure()
+    plt.plot(T, ASCNODE, color='darkorange', linewidth=7)
+    plt.title('Долгота восходящего узла', fontsize=14, pad=20)
+    plt.xlabel('Время, с', fontsize=12)
+    plt.ylabel('Ω, град', fontsize=12)
+    plt.grid(True, linestyle='--')
+    plt.tight_layout()
+    plt.show()
+
+    # --- 3. Фокальный параметр ---
+    plt.figure()
+    plt.plot(T, P, color='forestgreen', linewidth=7)
+    plt.title('Фокальный параметр', fontsize=14, pad=20)
+    plt.xlabel('Время, с', fontsize=12)
+    plt.ylabel('p, км', fontsize=12)
+    plt.grid(True, linestyle='--')
+    plt.tight_layout()
+    plt.show()
+
+    # --- 4. Аргумент перицентра ---
+    plt.figure()
+    plt.plot(T, OM, color='crimson', linewidth=7)
+    plt.title('Аргумент перицентра', fontsize=14, pad=20)
+    plt.xlabel('Время, с', fontsize=12)
+    plt.ylabel('ω, град', fontsize=12)
+    plt.grid(True, linestyle='--')
+    plt.tight_layout()
+    plt.show()
+
+    # --- 5. Аргумент широты ---
+    plt.figure()
+    plt.plot(T, ARGLAT, color='purple', linewidth=7)
+    plt.title('Аргумент широты', fontsize=14, pad=20)
+    plt.xlabel('Время, с', fontsize=12)
+    plt.ylabel('U, град', fontsize=12)
+    plt.grid(True, linestyle='--')
+    plt.tight_layout()
+    plt.show()
+
+    # --- 6. Эксцентриситет ---
+    plt.figure()
+    plt.plot(T, E, color='teal', linewidth=7)
+    plt.title('Эксцентриситет', fontsize=14, pad=20)
+    plt.xlabel('Время, с', fontsize=12)
+    plt.ylabel('e', fontsize=12)
+    plt.grid(True, linestyle='--')
+    plt.tight_layout()
+    plt.show()
+
+    # --- 7. Наклонение ---
+    plt.figure()
+    plt.plot(T, INCL, color='goldenrod', linewidth=7)
+    plt.title('Наклонение орбиты', fontsize=14, pad=20)
+    plt.xlabel('Время, с', fontsize=12)
+    plt.ylabel('i, град', fontsize=12)
+    plt.grid(True, linestyle='--')
+    plt.tight_layout()
+    plt.show()
+
+    # --- 8-10. S, T, W ---
+    for y_data, title, ylabel in zip([S_list, T_list, W_list], ['S', 'T', 'W'], ['S', 'T', 'W']):
+        plt.figure()
+        plt.plot(T, y_data, color='steelblue', linewidth=7)
+        plt.title(title, fontsize=14, pad=20)
+        plt.xlabel('Время, с', fontsize=12)
+        plt.ylabel(ylabel, fontsize=12)
+        plt.grid(True, linestyle='--')
+        plt.tight_layout()
+        plt.show()'''
 
     plt.plot(Lon, Lat)
     plt.title('Трасса')
@@ -417,7 +523,7 @@ def correction():
     plt.show()
 
 def indignant():
-    '''снести к хуям эту ебаную хуйню, все блять по формулам правильно, но по результатам нихуя оно не правильно '''
+    '''снести эту функцию, потому что по формулам правильно, но по результатам оно не правильно '''
     disable_all_buttons()
     ic.enable()
     r0 = 6371 + 180
@@ -851,6 +957,20 @@ combo_Incl['values'] = (10, 98, 63.5, "Свое значение")
 combo_Incl.current(1)
 combo_Incl.pack()
 
+label_perturbation = Label(second_frame, text="Введите учитываемые возмущения", font=("Times New Roman", 12), fg="blue")
+label_perturbation.pack()
+combo_perturbation = Combobox(second_frame)
+combo_perturbation['values'] = ('none', 'gravy', "atmosphere")
+combo_perturbation.current(1)
+combo_perturbation.pack()
+
+label_Cx = Label(second_frame, text="Введите коэффициент лобового сопротивления", font=("Times New Roman", 12), fg="blue")
+label_Cx.pack()
+combo_Cx = Combobox(second_frame)
+combo_Cx['values'] = (2, 3.5)
+combo_Cx.current(1)
+combo_Cx.pack()
+
 label_step = Label(second_frame, text="Введите шаг моделирования графика, секунд", font=("Times New Roman", 12), fg="blue")
 label_step.pack()
 combo_step = Combobox(second_frame)
@@ -986,11 +1106,11 @@ btn_graf = Button(root, text="Построить трассу спутника (
                   command=graf_threat)
 btn_graf.pack()
 
-btn_correction = Button(root, text="Смоделировать невозмущенное движение по орбите", font=("Times New Roman", 12, "bold"),
+btn_correction = Button(root, text="Смоделировать возмущенное движение по орбите", font=("Times New Roman", 12, "bold"),
                         fg="red", command=correction_thread)
 btn_correction.pack()
 
-btn_indignant = Button(root, text="Смоделировать возмущенное движение по орбите", font=("Times New Roman", 12, "bold"),
+btn_indignant = Button(root, text="Смоделировать невозмущенное движение по орбите", font=("Times New Roman", 12, "bold"),
                         fg="red", command=indignant_thread)
 btn_indignant.pack()
 

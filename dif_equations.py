@@ -67,15 +67,169 @@ class Difur:
 
         return S, T, W
 
+    '''def atmospheric_acceleration(self, initial):
+
+        Ca = initial["Ca"]
+        S_surf = initial["S"]  # Площадь, м²
+        mass = 100  # кг
+
+        # Орбитальные элементы
+        a_km = initial["a"]
+        e = initial["e"]
+        inc = initial["i"]  # наклон (inclination), рад
+        RAAN = initial["ascnode"]  # восходящий узел (Right Ascension of Ascending Node), рад
+        argp = initial["omega"]  # аргумент перицентра (argument of pericenter), рад
+        nu = initial["atta"]  # истинная аномалия (true anomaly), рад
+
+        # Радиус и высота
+        a = a_km * 1000  # большая полуось, м
+        r = a * (1 - e ** 2) / (1 + e * np.cos(nu))  # текущий радиус, м
+        h_km = r / 1000 - 6371  # высота над поверхностью, км
+
+        if h_km > 1500:
+            return 0, 0, 0
+
+        # Гравитационный параметр
+        mu = cMu * 1e9  # м³/с²
+
+        # Орбитальная скорость по энергии
+        v = np.sqrt(mu * (2 / r - 1 / a))
+
+        # Атмосферная плотность (экспоненциальная модель)
+        def approx_density(h_km):
+            if h_km < 25:
+                return 1.225 * np.exp(-h_km / 7.64)
+            elif h_km < 100:
+                return 3.899e-15 * np.exp(-(h_km - 90) / 6.5)
+            elif h_km < 1500:
+                return 5e-11 * np.exp(-(h_km - 100) / 100)
+            else:
+                return 0
+
+        rho = approx_density(h_km)
+
+        # Орбитальный момент
+        h = np.sqrt(mu * a * (1 - e ** 2))
+
+        # Вектор скорости в перицентральной системе координат (PQW)
+        vx_p = (mu / h) * (-np.sin(nu))
+        vy_p = (mu / h) * (e + np.cos(nu))
+        vz_p = 0
+        v_vec_pqw = np.array([vx_p, vy_p, vz_p])
+
+        # Поворот из PQW в ECI (через RAAN, inc, argp)
+        def rotation_matrix(RAAN, inc, argp):
+            cosO, sinO = np.cos(RAAN), np.sin(RAAN)
+            cosi, sini = np.cos(inc), np.sin(inc)
+            cosw, sinw = np.cos(argp), np.sin(argp)
+
+            R = np.array([
+                [cosO * cosw - sinO * sinw * cosi, -cosO * sinw - sinO * cosw * cosi, sinO * sini],
+                [sinO * cosw + cosO * sinw * cosi, -sinO * sinw + cosO * cosw * cosi, -cosO * sini],
+                [sinw * sini, cosw * sini, cosi]
+            ])
+            return R
+
+        R = rotation_matrix(RAAN, inc, argp)
+        v_vec_eci = R @ v_vec_pqw
+
+        # Нормированный вектор скорости
+        v_hat = v_vec_eci / np.linalg.norm(v_vec_eci)
+
+        # Модуль аэродинамического ускорения
+        a_drag = 0.5 * Ca * (S_surf / mass) * rho * v ** 2
+
+        # Вектор аэродинамического ускорения (против движения)
+        a_vec = -a_drag * v_hat
+
+        # Вектор положения в PQW
+        rx_p = r * np.cos(nu)
+        ry_p = r * np.sin(nu)
+        rz_p = 0
+        r_vec_pqw = np.array([rx_p, ry_p, rz_p])
+        r_vec_eci = R @ r_vec_pqw
+
+        # Базис СКО: S, T, W
+        S_dir = r_vec_eci / np.linalg.norm(r_vec_eci)
+        W_dir = np.cross(r_vec_eci, v_vec_eci)
+        W_dir /= np.linalg.norm(W_dir)
+        T_dir = np.cross(W_dir, S_dir)
+
+        # Разложение ускорения по S, T, W
+        a_S = np.dot(a_vec, S_dir)
+        a_T = np.dot(a_vec, T_dir)
+        a_W = np.dot(a_vec, W_dir)
+
+        return a_S, a_T, a_W'''
+
+    def none_perturbations(self, initial):
+        S, T, W = 0, 0, 0
+        return S, T, W
+
     def atmospheric_acceleration(self, initial):
         """Вычисляет компоненты аэродинамического ускорения (S, T, W)"""
-        Ca = initial["Ca"]
+        Cx = initial["Cx"]
+        S_surf = initial["S"]  # Площадь поперечного сечения, м²
+        mass = initial['mass']  # Масса аппарата, кг
+
+        # Орбитальные параметры
+        r_km = initial["r"]  # Радиус-вектор, км
+        a_km = initial["a"]  # Большая полуось, км
+        e = initial["e"]  # Эксцентриситет
+        u = initial["u"]  # Аргумент широты, рад
+
+        h_km = r_km - 6371
+        if h_km > 1500:
+            return 0.0, 0.0, 0.0
+
+        # Перевод в метры
+        r = r_km * 1000
+        a = a_km * 1000
+
+        # Константы атмосферы
+        H = 8.5e3  # Масштабная высота атмосферы, м
+        ro0 = 1.225  # Плотность у поверхности, кг/м³
+        h = r - 6371e3  # Высота над поверхностью, м
+
+        # Плотность атмосферы
+        try:
+            exponent = -h / H
+            if exponent < -700:  # предел float64, чтобы избежать underflow
+                ro = 0.0
+            else:
+                ro = ro0 * m.exp(exponent)
+        except OverflowError:
+            ro = 0.0
+
+        # Гравитационный параметр
+        mu = cMu * 1e9  # м³/с²
+
+        # Орбитальные параметры
+        p = a * (1 - e ** 2)
+        A = 1 + e * m.cos(u)
+        B = m.sqrt(1 + e ** 2 + 2 * e * m.cos(u))
+        sigma = Cx * S_surf / (2 * mass)
+
+        # Аэродинамическое ускорение по нормали к траектории (суммарное)
+        Fa = sigma * mu / p * B ** 2 * ro
+
+        # Разложение на компоненты
+        T = -Fa * A / B  # Тангенциальная компонента
+        S = -Fa * e * m.sin(u) / B  # Радиальная компонента
+        W = 0.0  # Нормальная компонента (не учитывается)
+
+        return S, T, W
+
+    '''   def atmospheric_acceleration(self, initial):
+        """Вычисляет компоненты аэродинамического ускорения (S, T, W)"""
+        Cx = initial["Cx"]
         S_surf = initial["S"]  # Площадь поперечного сечения (м²)
         mass = 100  # кг
 
         # Орбитальные параметры
         r_km = initial["r"]  # в км
         a_km = initial["a"]  # большая полуось (в км)
+        e = initial['e']
         h_km = r_km - 6371
 
         if h_km > 1500:
@@ -87,21 +241,25 @@ class Difur:
 
         # Константы атмосферы
         H = 8.5e3  # м
-        ρ0 = 1.225  # кг/м³
+        ro0 = 1.225  # кг/м³
         h = r - 6371e3  # м
 
         # Атмосферная плотность
-        ρ = ρ0 * m.exp(-h / H)
+        ro = ro0 * m.exp(-h / H)
 
         # Скорость на эллиптической орбите
-        μ = cMu * 1e9  # Приводим к м³/с²
-        v = m.sqrt(μ * (2 / r - 1 / a))  # м/с
+        mu = cMu * 1e9  # Приводим к м³/с²
+        try:
+            #v = m.sqrt(mu * (2 / r - 1 / a))  # м/с
+            v = m.sqrt((1 - e) / (a * (1 + e)))
+        except Exception as e:
+            print(f"r = {r}, a = {a}, e = {e}")
 
         # Аэродинамическое ускорение
-        a_drag = 0.5 * Ca * (S_surf / mass) * ρ * v ** 2
+        a_drag = 0.5 * Cx * (S_surf / mass) * ro * v ** 2
 
         # Воздействие по трансверсальной оси (вдоль вектора скорости)
-        return 0, -a_drag, 0
+        return 0, -a_drag, 0'''
 
 
     def da_func(self, initial):  # большая полуось
@@ -115,8 +273,12 @@ class Difur:
         i = initial['i']
         u = initial['u']
 
-        S, T, W = self.atmospheric_acceleration(initial) # ускорения от атмосферных возмущений
-        #S, T, W = self.gravi_perturbations(initial) # гравитационные возмущения
+        if initial['perturbation'] == 'none':
+            S, T, W = 0, 0, 0
+        if initial['perturbation'] == 'gravy':
+            S, T, W = self.gravi_perturbations(initial)  # гравитационные возмущения
+        if initial['perturbation'] == 'atmosphere':
+            S, T, W = self.atmospheric_acceleration(initial) #ускорения от атмосферных возмущений
 
         try:
             derivative = float((2 * p / (1 - e) ** 2) * m.sqrt(p / cMu) * (e * m.sin(atta) * S + (1 + e * m.cos(atta)) * T))
@@ -135,8 +297,12 @@ class Difur:
         i = initial['i']
         u = initial['u']
 
-        S, T, W = self.atmospheric_acceleration(initial) # ускорения от атмосферных возмущений
-        #S, T, W = self.gravi_perturbations(initial) # гравитационные возмущения
+        if initial['perturbation'] == 'none':
+            S, T, W = 0, 0, 0
+        if initial['perturbation'] == 'gravy':
+            S, T, W = self.gravi_perturbations(initial)  # гравитационные возмущения
+        if initial['perturbation'] == 'atmosphere':
+            S, T, W = self.atmospheric_acceleration(initial)  # ускорения от атмосферных возмущений
 
         try:
             derivative = float(m.sqrt(p / cMu) * (S * m.sin(atta) + T * ((1 + r / p) * m.cos(atta) + e * (r / p))))
@@ -155,8 +321,13 @@ class Difur:
         r = initial['r']
         i = initial['i']
 
-        S, T, W = self.atmospheric_acceleration(initial) # ускорения от атмосферных возмущений
-        #S, T, W = self.gravi_perturbations(initial) # гравитационные возмущения
+        if initial['perturbation'] == 'none':
+            S, T, W = 0, 0, 0
+        if initial['perturbation'] == 'gravy':
+            S, T, W = self.gravi_perturbations(initial)  # гравитационные возмущения
+        if initial['perturbation'] == 'atmosphere':
+            S, T, W = self.atmospheric_acceleration(initial)  # ускорения от атмосферных возмущений
+
         try:
             derivative = float(m.sqrt(p / cMu) * (m.cos(u) / (1 + e * m.cos(atta))) * W)
             return derivative, 'i'
@@ -176,8 +347,13 @@ class Difur:
         r = initial['r']
         omega = initial['omega']
 
-        S, T, W = self.atmospheric_acceleration(initial) # ускорения от атмосферных возмущений
-        #S, T, W = self.gravi_perturbations(initial) # гравитационные возмущения
+        if initial['perturbation'] == 'none':
+            S, T, W = 0, 0, 0
+        if initial['perturbation'] == 'gravy':
+            S, T, W = self.gravi_perturbations(initial)  # гравитационные возмущения
+        if initial['perturbation'] == 'atmosphere':
+            S, T, W = self.atmospheric_acceleration(initial)  # ускорения от атмосферных возмущений
+
         try:
             if e == 0:  # круговая орбита
                 derivative = 0
@@ -199,14 +375,21 @@ class Difur:
         i = initial['i']
         r = initial['r']
 
-        S, T, W = self.atmospheric_acceleration(initial) # ускорения от атмосферных возмущений
-        #S, T, W = self.gravi_perturbations(initial) # гравитационные возмущения
+        if initial['perturbation'] == 'none':
+            S, T, W = 0, 0, 0
+        if initial['perturbation'] == 'gravy':
+            S, T, W = self.gravi_perturbations(initial)  # гравитационные возмущения
+        if initial['perturbation'] == 'atmosphere':
+            S, T, W = self.atmospheric_acceleration(initial)  # ускорения от атмосферных возмущений
+
         try:
             derivative = float(m.sqrt(p / cMu) * (m.sin(u) / ((1 + e * m.cos(atta)) * m.sin(i)) * W))
             #derivative = 2 * m.pi / (365.2422 * 86400)
             return derivative, 'ascnode'
         except (ValueError, ZeroDivisionError) as e:
             print(f"Error in radius: {e}")
+
+
     def du_func(self, initial):  # аргумент широты
         F = initial['F']
         beta = m.pi / 2
@@ -217,8 +400,13 @@ class Difur:
         i = initial['i']
         r = initial['r']
 
-        S, T, W = self.atmospheric_acceleration(initial) # ускорения от атмосферных возмущений
-        #S, T, W = self.gravi_perturbations(initial) # гравитационные возмущения
+        if initial['perturbation'] == 'none':
+            S, T, W = 0, 0, 0
+        if initial['perturbation'] == 'gravy':
+            S, T, W = self.gravi_perturbations(initial)  # гравитационные возмущения
+        if initial['perturbation'] == 'atmosphere':
+            S, T, W = self.atmospheric_acceleration(initial)  # ускорения от атмосферных возмущений
+
         try:
             if e == 0:
                 derivative = 0
@@ -243,8 +431,13 @@ class Difur:
         i = initial['i']
         a = initial['a']
 
-        S, T, W = self.atmospheric_acceleration(initial) # ускорения от атмосферных возмущений
-        #S, T, W = self.gravi_perturbations(initial) # гравитационные возмущения
+        if initial['perturbation'] == 'none':
+            S, T, W = 0, 0, 0
+        if initial['perturbation'] == 'gravy':
+            S, T, W = self.gravi_perturbations(initial)  # гравитационные возмущения
+        if initial['perturbation'] == 'atmosphere':
+            S, T, W = self.atmospheric_acceleration(initial)  # ускорения от атмосферных возмущений
+
         try:
             if e == 0:  # круговая орбита
                 derivative = m.sqrt(cMu / a ** 3) + (2 / m.sqrt(cMu * a)) * T
