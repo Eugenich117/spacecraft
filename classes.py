@@ -46,7 +46,7 @@ class TSpacecraft:
         self.FCurentOrbit.assign_graf(my_time)
         vtr, vrad, ia, ea, r, v = self.FCurentOrbit.data_take()
         result_class_dict_graf, result_dict_graf = self.FCurentOrbit.class_to_cart_graf(my_time)
-        return result_class_dict_graf, result_dict_graf# vtr, vrad, ia, ea, r, v
+        return result_class_dict_graf, result_dict_graf#, vtr, vrad, ia, ea, r, v
 
     def update(self, data_correction, my_time):
         self.data = data_correction
@@ -93,15 +93,6 @@ class TOrbitClass:
         #v = m.sqrt(vtr ** 2 + vrad ** 2)
         return vtr, vrad, ia, ea, r, v
 
-    def assign(self):
-        self.Rp = self.data["Rp"]
-        self.e = self.data["e"]
-        self.ArgLat = self.data["ArgLat"]
-        self.Incl = self.data["Incl"]
-        self.AscNode = self.data["AscNode"]
-        self.ArgPerigee = self.data["ArgPerigee"]
-        self.step = self.data["step"]
-
     def assign_graf(self, my_time):
         self.Epoch_graf = int((datetime.datetime.now() + datetime.timedelta(seconds=my_time)).timestamp())
         self.curtime = datetime.datetime.now() + datetime.timedelta(seconds=my_time)
@@ -114,71 +105,6 @@ class TOrbitClass:
         self.step = self.data["step"]
         self.classToCart_graf = self.class_to_cart_graf(my_time)
         #self.ToGeo_graf = self.to_geo_graf
-
-    def class_to_cart(self):
-        ic.disable()
-        result_class_dict = {}
-
-        r = self.radius()
-        Cu = m.cos(self.ArgLat)
-        Su = m.sin(self.ArgLat)
-        Co = m.cos(self.AscNode)
-        So = m.sin(self.AscNode)
-        Ci = m.cos(self.Incl)
-        Si = m.sin(self.Incl)
-        ic(Cu, Su, Co, So, Ci, Si, r)
-
-        result_class_dict['Pos'] = {
-            'X': r * (Cu * Co - Su * So * Ci),
-            'Y': r * (Cu * So + Su * Co * Ci),
-            'Z': r * Su * Si
-        }
-
-        Vr_r = self.vradial() / r  # тут почему-то 0 в радиал
-        rw = self.ang_rate() * r
-        ic(Vr_r, rw)
-        result_class_dict['Vel'] = {
-            'X': Vr_r * result_class_dict['Pos']['X'] - rw * (Su * Co + Cu * So * Ci),
-            'Y': Vr_r * result_class_dict['Pos']['Y'] - rw * (Su * So - Cu * Co * Ci),
-            'Z': Vr_r * result_class_dict['Pos']['Z'] - rw * (-Cu * Si)
-        }
-
-        return result_class_dict
-
-    def to_geo(self, result_class_dict):
-        ic.disable()
-        S = self.SiderealTime()
-        ic(S)
-        pos_dict = {
-            'X': m.cos(S) * result_class_dict['Pos']['X'] + m.sin(S) * result_class_dict['Pos']['Y'],
-            'Y': -m.sin(S) * result_class_dict['Pos']['X'] + m.cos(S) * result_class_dict['Pos']['Y'],
-            'Z': result_class_dict['Pos']['Z']
-        }
-
-        R = m.sqrt(result_class_dict['Pos']['X'] ** 2 + result_class_dict['Pos']['Y'] ** 2 + result_class_dict['Pos']['Z'] ** 2)
-
-        latitude = m.asin((pos_dict['Z'] / R))
-        ic(R, latitude)
-
-        result_dict = {
-            'Pos': pos_dict,
-            'R': R,
-            'Latitude': latitude
-        }
-
-        R_xy = m.sqrt(result_class_dict['Pos']['X'] ** 2 + result_class_dict['Pos']['Y'] ** 2)
-
-        if R_xy <= 0:
-            longitude = S
-        else:
-            Cl = pos_dict['X'] / R_xy
-            Sl = pos_dict['Y'] / R_xy
-            Lon = m.acos(Cl)
-            longitude = Lon * m.copysign(1, Sl)
-
-        result_dict['Longitude'] = longitude
-
-        return result_dict
 
     def class_to_cart_graf(self, my_time):
         ic.disable()
@@ -212,7 +138,7 @@ class TOrbitClass:
         return result_class_dict_graf, result_dict_graf
 
     def to_geo_graf(self, my_time, result_class_dict_graf):
-        ic.enable()
+        ic.disable()
         S = self.SiderealTime_graf(my_time)
         ic(S)
         pos_dict = {
@@ -288,70 +214,6 @@ class TOrbitClass:
         ic(julian_date)
         return julian_date'''
 
-    def SiderealTime(self):
-        my_time = int(datetime.datetime.now().timestamp())
-        time_obj = Time(my_time, format='unix')
-        julian_date = time_obj.jd
-        # Создаем объект Time с использованием времени в формате Unix
-        # Определяем местоположение наблюдателя (пример: Гринвич)
-        location = EarthLocation.of_site('greenwich')
-        # Вычисляем среднее звездное время в Гринвиче
-        gst = time_obj.sidereal_time('mean', longitude=location.lon)
-        gst_in_radians = gst.rad
-        '''d = int(julian_date - JD2K15)
-        ic(julian_date)
-        M = self.Epoch - int(self.Epoch)  # (self.Epoch - self.DateTimeToJulianDate() / cTc)
-        ic(M)
-        t = d / cJC
-        S = 1.7533685592 + 0.0172027918051 * d + 6.2831853072 * M + 6.7707139e-6 * t ** 2 - 4.50876e-10 * t ** 3
-
-        n = int(S / cTwoPi)
-        SiderealTime_const = S - n * cTwoPi'''
-        return gst_in_radians  #SiderealTime_const
-    #яернов и чернявский орбиты спутников ДЗЗ
-    '''def DateTimeToJulianDate_graf(self, my_time):
-        ic.disable()
-        AValue = datetime.datetime.now() + datetime.timedelta(seconds=my_time)
-        ic(AValue)
-        # Используем функции year, month, day, hour, minute, second объекта datetime
-        LYear, LDay = AValue.year - 1900, AValue.day
-        LMonth = AValue.month - 3
-        if LMonth < 0:
-            LMonth += 12
-            LYear -= 1
-        LHour, LMinute, LSecond = AValue.hour, AValue.minute, AValue.second
-        ic(LYear, LMonth, LDay, LHour, LMinute, LSecond)
-        mjd = 15078 + 365 * LYear + int(LYear / 4) + int(0.5 + 30.6 * LMonth) + \
-              LDay + LHour / 24 + LMinute / 1440 + LSecond / 86400 - 0.125  # c юлианской датой из калькулятора в инете разница в -0.1242360925898538
-        rd = int(mjd + 0.125) - 15078
-        nd = int(rd)
-        nz = int(rd / 1461.01)
-        na = nd - 1461.01 * nz
-        nb = int(na / 365.25)
-        myear = 4 * nz + nb + 1900
-        if na == 1451:
-            mmonth = 2
-            mday = 29
-        else:
-            nz = na - 365 * nb
-            ma = int((nz - 0.5) / 30.6)
-            mmonth = ma + 3
-            mday = nz - int(30.6 * mmonth - 91.3)
-        if mmonth > 12:
-            mmonth -= 12
-            myear += 1
-        sp = 24 * (mjd + 0.125 - int(mjd + 0.125))
-        mhour = int(sp)
-        sp = 60 * (sp - mhour)
-        mmin = int(sp)
-        msec = 60 * (sp - mmin)
-        ic(myear, mmonth, mday, mhour, mmin, msec)
-        julian_date = float("{:.1f}".format(myear)) * 1000000 + mmonth * 10000 + mday * 100 + mhour + (mmin / 60) + (
-                msec / 3600)
-
-        ic(julian_date)
-        return julian_date'''
-
     def SiderealTime_graf(self, my_time):
         ic.disable()
         my_time = int((datetime.datetime.now() + datetime.timedelta(seconds=my_time)).timestamp())
@@ -359,20 +221,21 @@ class TOrbitClass:
         julian_date = time_obj.jd
         # Создаем объект Time с использованием времени в формате Unix
         # Определяем местоположение наблюдателя (пример: Гринвич)
-        location = EarthLocation.of_site('greenwich')
+        '''location = EarthLocation.of_site('greenwich')
 
         # Вычисляем среднее звездное время в Гринвиче
         gst = time_obj.sidereal_time('mean', longitude=location.lon)
-        gst_in_radians = gst.rad
-        '''d = int(julian_date - JD2K15)
+        gst_in_radians = gst.rad'''
 
-        M = my_time - int(my_time)
+        d = int(julian_date - JD2K15)
+
+        M = julian_date % 1#my_time - int(my_time)
         t = d / cJC
         S = 1.7533685592 + 0.0172027918051 * d + 6.2831853072 * M + (6.7707139e-6 * t - 4.50876e-10 * t ** 2) * t
         n = int(S / cTwoPi)
-        SiderealTime_const = S - n * cTwoPi'''
-        return gst_in_radians  # SiderealTime_const
-
+        SiderealTime_const = S - n * cTwoPi
+        return SiderealTime_const
+        #return gst_in_radians
     ic.disable()
 
     def vradial(self):

@@ -21,616 +21,472 @@ data = {}
 data_correction = {}
 ic.enable()
 def calculation():
-    disable_all_buttons()
-    data["Rp"] = float(combo_Rp.get())
-    data["e"] = float(combo_e.get())
-    data["ArgLat"] = float(combo_ArgLat.get()) * cToRad
-    data["Incl"] = float(combo_Incl.get()) * cToRad
-    data["AscNode"] = float(combo_AscNode.get()) * cToRad
-    data["ArgPerigee"] = float(combo_ArgPerig.get()) * cToRad
-    data["step"] = float(combo_step.get())
     try:
-        check_data(data)
+        disable_all_buttons()
+        data["Rp"] = float(combo_Rp.get())
+        data["e"] = float(combo_e.get())
+        data["ArgLat"] = float(combo_ArgLat.get()) * cToRad
+        data["Incl"] = float(combo_Incl.get()) * cToRad
+        data["AscNode"] = float(combo_AscNode.get()) * cToRad
+        data["ArgPerigee"] = float(combo_ArgPerig.get()) * cToRad
+        data["step"] = float(combo_step.get())
+        try:
+            check_data(data)
+        except ValueError as e:
+            return
+        #memo1.delete(1.0, "end")  # Clear the Text widget
+        start_time = time.time()
+        my_time = datetime.datetime.now().timestamp()
+        Calc = cl.TOrbitClass(data)
+        orb = cl.TSpacecraft(data)
+        orb.FCurentOrbit.assign_graf(my_time)
+
+        Calc.Epoch = int(datetime.datetime.now().timestamp())
+        result_class_dict, result_dict = Calc.class_to_cart_graf(my_time)
+        #result_dict = Calc.to_geo_graf(my_time, result_class_dict)
+
+        try:
+            s_pos = f"Положение  {result_class_dict['Pos']['X']:.3f}  {result_class_dict['Pos']['Y']:.3f}  {result_class_dict['Pos']['Z']:.3f}"
+            memo1.insert("end", s_pos + "\n")
+        except Exception as e:
+            memo1.insert("end", f"Error in calculating Pos: {str(e)}\n")
+
+        try:
+            s_geo = f"Долгота  {result_dict['Longitude'] * cToDeg:.3f} (град), Широта {result_dict['Latitude'] * cToDeg:.3f} (град)"
+            memo1.insert("end", s_geo + "\n")
+        except Exception as e:
+            memo1.insert("end", f"Error in calculating Geo coordinates: {str(e)}\n")
+
+        try:
+            s_vel = f"Скорость {result_class_dict['Vel']['X']:.3f}  {result_class_dict['Vel']['Y']:.3f}  {result_class_dict['Vel']['Z']:.3f}"
+            memo1.insert("end", s_vel + "\n")
+        except Exception as e:
+            memo1.insert("end", f"Error in calculating Vel: {str(e)}\n")
+
+        try:
+            s_st = f"Здвездное время {Calc.SiderealTime_graf(my_time) * cToDeg:.3f} град"
+            memo1.insert("end", s_st + "\n")
+        except Exception as e:
+            memo1.insert("end", f"Error in calculating Sidereal Time: {str(e)}\n")
+        enable_all_buttons()
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        memo1.insert("end", f"Время расчета: {elapsed_time}" + "\n")
+        memo1.insert("end", f"Текущее время: {datetime.datetime.now()}" + "\n")
+        memo1.insert("end", f"Время запуска спутника совпадает с текущим временем \n")
     except ValueError as e:
-        return
-    #memo1.delete(1.0, "end")  # Clear the Text widget
-    start_time = time.time()
-    Calc = cl.TOrbitClass(data)
-    orb = cl.TSpacecraft(data)
-    orb.FCurentOrbit.assign()
-
-    Calc.Epoch = int(datetime.datetime.now().timestamp())
-    result_class_dict = Calc.class_to_cart()
-    result_dict = Calc.to_geo(result_class_dict)
-
-    try:
-        s_pos = f"Положение  {result_dict['Pos']['X']:.3f}  {result_dict['Pos']['Y']:.3f}  {result_dict['Pos']['Z']:.3f}"
-        memo1.insert("end", s_pos + "\n")
-    except Exception as e:
-        memo1.insert("end", f"Error in calculating Pos: {str(e)}\n")
-
-    try:
-        s_geo = f"Долгота  {result_dict['Longitude'] * cToDeg:.3f} (град), Широта {result_dict['Latitude'] * cToDeg:.3f} (град)"
-        memo1.insert("end", s_geo + "\n")
-    except Exception as e:
-        memo1.insert("end", f"Error in calculating Geo coordinates: {str(e)}\n")
-
-    try:
-        s_vel = f"Скорость {result_class_dict['Vel']['X']:.3f}  {result_class_dict['Vel']['Y']:.3f}  {result_class_dict['Vel']['Z']:.3f}"
-        memo1.insert("end", s_vel + "\n")
-    except Exception as e:
-        memo1.insert("end", f"Error in calculating Vel: {str(e)}\n")
-
-    try:
-        s_st = f"Здвездное время {Calc.SiderealTime() * cToDeg:.3f} град"
-        memo1.insert("end", s_st + "\n")
-    except Exception as e:
-        memo1.insert("end", f"Error in calculating Sidereal Time: {str(e)}\n")
-    enable_all_buttons()
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    memo1.insert("end", f"Время расчета: {elapsed_time}" + "\n")
-    memo1.insert("end", f"Текущее время: {datetime.datetime.now()}" + "\n")
-    memo1.insert("end", f"Время запуска спутника совпадает с текущим временем \n")
-
+        enable_all_buttons()
+        print(f'Произошла ошибка {e}')
 
 def graf():
-    disable_all_buttons()
-    ic.enable()
-    data["Rp"] = float(combo_Rp.get())
-    data["e"] = float(combo_e.get())
-    data["ArgLat"] = float(combo_ArgLat.get()) * cToRad
-    data["Incl"] = float(combo_Incl.get()) * cToRad
-    data["AscNode"] = float(combo_AscNode.get()) * cToRad
-    data["ArgPerigee"] = float(combo_ArgPerig.get()) * cToRad
-    data["step"] = float(combo_step.get())
-    data["interval"] = float(combo_interval.get())
     try:
-        check_data(data)
+        disable_all_buttons()
+        ic.enable()
+        data["Rp"] = float(combo_Rp.get())
+        data["e"] = float(combo_e.get())
+        data["ArgLat"] = float(combo_ArgLat.get()) * cToRad
+        data["Incl"] = float(combo_Incl.get()) * cToRad
+        data["AscNode"] = float(combo_AscNode.get()) * cToRad
+        data["ArgPerigee"] = float(combo_ArgPerig.get()) * cToRad
+        data["step"] = float(combo_step.get())
+        data["interval"] = float(combo_interval.get())
+        try:
+            check_data(data)
+        except ValueError as e:
+            return
+        start_time = time.time()
+        calc = cl.TSpacecraft(data)
+        orb = cl.TOrbitClass(data)
+        my_time = datetime.datetime.now().timestamp()
+        end_time = my_time + data["interval"]
+        time_step = orb.step
+        x = []
+        y = []
+        counter = 0
+        while my_time < end_time:
+            result_class_dict_graf, result_dict_graf = calc.change_time(my_time)
+            x_values = result_dict_graf['Longitude'] * cToDeg
+            x.append(x_values)
+            y_values = result_dict_graf['Latitude'] * cToDeg
+            y.append(y_values)
+            my_time += time_step
+            counter += 1
+            ic(my_time)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        memo1.insert("end", f"Время работы graf: {elapsed_time} секунд\n")
+        memo1.insert("end", f"Количество итераций:{counter}\n")
+
+        map_image_path = r"C:\Users\zheny\OneDrive\Рабочий стол\xxxxxx\универ\IT\питон самоучение\spacecraft\images.jpg"
+        map_image = Image.open(map_image_path)
+        map_image = map_image.convert("RGBA")  # Конвертируем изображение в формат RGBA
+        map_image = np.array(map_image)  # Преобразуем изображение в массив numpy
+
+        window_2 = Tk()
+        window_2.title('Трасса')
+
+        # Размеры окна
+        window_width = 700
+        window_height = 500
+        window_2.geometry(f"{window_width}x{window_height}")
+
+        # Создаем главный фрейм для хранения графиков и скроллбара
+        plot_width = window_width * 0.9  # Ширина одного графика
+        plot_height = int(plot_width * 0.66)  # Высота одного графика
+
+        # Создаем фигуру Matplotlib
+        fig, ax = plt.subplots(figsize=(plot_width / 100, plot_height / 100), dpi=100)
+        ax.scatter(x, y)  # Отображаем соответствующий график
+
+        # Отображаем изображение на фоне
+        ax.imshow(map_image, extent=[-180, 180, -90, 90], aspect='auto')
+        # Настройки графика (добавьте необходимые настройки)
+        ax.set_title("Трасса спутника")
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
+        ax.set_xlim(-180, 180)
+        ax.set_ylim(-90, 90)
+
+        # Создаем объект FigureCanvasTkAgg для отображения графика в Tkinter
+        canvas = FigureCanvasTkAgg(fig, master=window_2)
+        canvas.draw()
+
+        # Размещаем объект FigureCanvasTkAgg на внутреннем фрейме
+        canvas.get_tk_widget().pack(side=TOP, pady=10, padx=30)
+
+        # Запуск основного цикла обработки событий
+        window_2.mainloop()
+        enable_all_buttons()
     except ValueError as e:
-        return
-    start_time = time.time()
-    calc = cl.TSpacecraft(data)
-    orb = cl.TOrbitClass(data)
-    my_time = datetime.datetime.now().timestamp()
-    end_time = my_time + data["interval"]
-    time_step = orb.step
-    x = []
-    y = []
-    counter = 0
-    while my_time < end_time:
-        result_class_dict_graf, result_dict_graf = calc.change_time(my_time)
-        x_values = result_dict_graf['Longitude'] * cToDeg
-        x.append(x_values)
-        y_values = result_dict_graf['Latitude'] * cToDeg
-        y.append(y_values)
-        my_time += time_step
-        counter += 1
-        ic(my_time)
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    memo1.insert("end", f"Время работы graf: {elapsed_time} секунд\n")
-    memo1.insert("end", f"Количество итераций:{counter}\n")
-
-    map_image_path = r"C:\Users\zheny\OneDrive\Рабочий стол\xxxxxx\универ\IT\питон самоучение\spacecraft\images.jpg"
-    map_image = Image.open(map_image_path)
-    map_image = map_image.convert("RGBA")  # Конвертируем изображение в формат RGBA
-    map_image = np.array(map_image)  # Преобразуем изображение в массив numpy
-
-    window_2 = Tk()
-    window_2.title('Трасса')
-
-    # Размеры окна
-    window_width = 700
-    window_height = 500
-    window_2.geometry(f"{window_width}x{window_height}")
-
-    # Создаем главный фрейм для хранения графиков и скроллбара
-    plot_width = window_width * 0.9  # Ширина одного графика
-    plot_height = int(plot_width * 0.66)  # Высота одного графика
-
-    # Создаем фигуру Matplotlib
-    fig, ax = plt.subplots(figsize=(plot_width / 100, plot_height / 100), dpi=100)
-    ax.scatter(x, y)  # Отображаем соответствующий график
-
-    # Отображаем изображение на фоне
-    ax.imshow(map_image, extent=[-180, 180, -90, 90], aspect='auto')
-    # Настройки графика (добавьте необходимые настройки)
-    ax.set_title("Трасса спутника")
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.set_xlim(-180, 180)
-    ax.set_ylim(-90, 90)
-
-    # Создаем объект FigureCanvasTkAgg для отображения графика в Tkinter
-    canvas = FigureCanvasTkAgg(fig, master=window_2)
-    canvas.draw()
-
-    # Размещаем объект FigureCanvasTkAgg на внутреннем фрейме
-    canvas.get_tk_widget().pack(side=TOP, pady=10, padx=30)
-
-    # Запуск основного цикла обработки событий
-    window_2.mainloop()
-    enable_all_buttons()
-
+        enable_all_buttons()
+        print(f'Произошла ошибка {e}')
 def correction():
-    disable_all_buttons()
-    start_time = time.time()
-    data["Rp"] = float(combo_Rp.get())
-    data["e"] = float(combo_e.get())
-    data["ArgLat"] = float(combo_ArgLat.get()) * cToRad
-    data["Incl"] = float(combo_Incl.get()) * cToRad
-    data["AscNode"] = float(combo_AscNode.get()) * cToRad
-    data["ArgPerigee"] = float(combo_ArgPerig.get()) * cToRad
-    data["step"] = float(combo_step.get())
-    data["thrust"] = float(combo_thrust.get())
-    data["integr"] = str(combo_integr.get())
-    data["interval"] = float(combo_interval.get())
-    data["work"] = float(combo_work.get())
-    data["turn"] = float(combo_turn.get())
-    data["stabelize"] = str(combo_stabelize.get())
-    data["perturbation"] = str(combo_perturbation.get())
-    data["mass"] = int(combo_mass.get())
-    data["direction"] = str(combo_direction.get())
-    data["S"] = float(combo_square.get())
-    data["Cx"] = float(combo_Cx.get())
-
-
-    #заполнялось для лабы по теории полета
-
-
     try:
-        check_data(data)
-    except ValueError as e:
-        return
+        disable_all_buttons()
+        start_time = time.time()
+        data["Rp"] = float(combo_Rp.get())
+        data["e"] = float(combo_e.get())
+        data["ArgLat"] = float(combo_ArgLat.get()) * cToRad
+        data["Incl"] = float(combo_Incl.get()) * cToRad
+        data["AscNode"] = float(combo_AscNode.get()) * cToRad
+        data["ArgPerigee"] = float(combo_ArgPerig.get()) * cToRad
+        data["step"] = float(combo_step.get())
+        data["thrust"] = float(combo_thrust.get())
+        data["integr"] = str(combo_integr.get())
+        data["interval"] = float(combo_interval.get())
+        data["work"] = float(combo_work.get())
+        data["turn"] = float(combo_turn.get())
+        data["stabelize"] = str(combo_stabelize.get())
+        data["perturbation"] = str(combo_perturbation.get())
+        data["mass"] = int(combo_mass.get())
+        data["direction"] = str(combo_direction.get())
+        data["S"] = float(combo_square.get())
+        data["Cx"] = float(combo_Cx.get())
+        #заполнялось для лабы по теории полета
 
-    data_correction = data.copy()
-    eq = DE.Difur(data)
-    orb = cl.TOrbitClass(data)
-    calc = cl.TSpacecraft(data_correction)
+        try:
+            check_data(data)
+        except ValueError as e:
+            return
 
-    if float(combo_interval.get()) == 0:
-        data["interval"] = orb.period()
-    my_time = 0
-    time_step = data["step"]
-    time_stop = data["interval"] + my_time #orb.period()
-    X = []; A =[]; P = []; E = []; R = []; OM = []; Lon = []; Lat = []; ASCNODE = []; ARGLAT = []; INCL = [];
-    ATTA = []; T = []; W_list = []; T_list = []; S_list = []; OVER_GOAL = []
-    a, e, i, omega, ascnode, u, atta, p = orb.semi_major_axis(), data["e"], data["Incl"], data["ArgPerigee"], data["AscNode"], data["ArgLat"], orb.true_anomaly(), orb.parameter()
+        data_correction = data.copy()
+        eq = DE.Difur(data)
+        orb = cl.TOrbitClass(data)
+        calc = cl.TSpacecraft(data_correction)
 
-    if atta > m.pi:
-        atta %= (2 * m.pi)
-    if atta < -m.pi:
-        atta += 2 * m.pi
+        if float(combo_interval.get()) == 0:
+            data["interval"] = orb.period()
+        my_time = 0
+        time_step = data["step"]
+        time_stop = data["interval"] + my_time #orb.period()
+        X = []; A =[]; P = []; E = []; R = []; OM = []; Lon = []; Lat = []; ASCNODE = []; ARGLAT = []; INCL = [];
+        ATTA = []; T = []; W_list = []; T_list = []; S_list = []; OVER_GOAL = []
+        a, e, i, omega, ascnode, u, atta, p = orb.semi_major_axis(), data["e"], data["Incl"], data["ArgPerigee"], data["AscNode"], data["ArgLat"], orb.true_anomaly(), orb.parameter()
 
-    counter = 0
-    #r = (p / (1 + e * m.cos(atta)))
-    r = orb.radius()
-    initial = data.copy()
-    initial["a"] = a
-    initial["e"] = e
-    initial["i"] = i
-    initial["omega"] = omega
-    initial["ascnode"] = ascnode
-    initial["u"] = u
-    initial["atta"] = atta
-    initial["p"] = p
-    initial["r"] = r
-
-    perturbation_algoritms = {
-        "none": eq.none_perturbations,
-        "atmosphere": eq.atmospheric_acceleration,
-        "gravy": eq.gravi_perturbations
-    }
-    stabilization_algorithms = {
-        "Постоянство эксцентриситета": eq.stabilization_esccentr,
-        "Максимальная скорость изменения эксцентриситета": eq.stabilization_max_speed_esccentr,
-        "Постоянство расстояния до перигея": eq.stabilization_perig,
-        "Максимальная скорость изменения расстояния до перигея": eq.stabilization_max_speed_perig,
-        "Постоянство расстояния до апогея": eq.stabilization_apog,
-        "Максимальная скорость изменения расстояния до апогея": eq.stabilization_max_speed_apog,
-        "Постоянство фокального параметра": eq.stabilization_phocpar,
-        "Максимальная скорость изменения фокального параметра": eq.stabilization_max_speed_phocpar,
-        "Постоянство большой полуоси": eq.stabilization_a,
-        "Максимальная скорость изменения большой полуоси": eq.stabilization_max_speed_a,
-        "Постоянство положения линии аписд": eq.stabilization_apsid,
-        "Максимальная скорость вращения линии аписд": eq.stabilization_max_speed_apsid
-    }
-
-    intearated_methods = {
-        "Эйлера": eq.euler,
-        "Эйлера-Коши": eq.euler_cauchy,
-        "Рунге-Кутты 4": eq.runge_kutta_4,
-    }
-
-    equations = [eq.da_func, eq.de_func, eq.di_func, eq.domega_func, eq.dascnode_func, eq.du_func, eq.datta_func]
-    span = 0
-    progress_bar = tqdm(total=time_stop, unit='s', desc="Вычисление орбиты")
-
-    while my_time <= time_stop:
-        if data["turn"] <= my_time <= (data["turn"] + data["work"]):
-            F = data["thrust"]/data["mass"]/1000
-
-            if data["stabelize"] in stabilization_algorithms:
-                lam = stabilization_algorithms[data["stabelize"]](e, atta)
-
-        elif not (data["turn"] <= my_time <= (data["turn"] + data["work"])):
-            lam = 0
-            F = 0
-
-        if data["direction"] == "Отрицательное":
-            F = -F
-
-        initial["F"] = F
-        initial["lam"] = lam
-        dx =['a', 'e', 'i', 'omega', 'ascnode', 'u', 'atta']
-        if data["integr"] in intearated_methods:
-            values = intearated_methods[data["integr"]](equations, initial, data["step"], dx)
-
-        a = values[0]
-        e = values[1]
-        i = values[2]
-        omega = values[3]
-        ascnode = values[4]
-        u = values[5]
-        p = a * (1 - e ** 2)
-        atta = values[6]
-        #atta = u - omega
-        if atta >=  m.pi:
-            atta -= (2 * m.pi)
-        if atta <= - m.pi:
+        if atta > m.pi:
+            atta %= (2 * m.pi)
+        if atta < -m.pi:
             atta += 2 * m.pi
 
-        #arglat = omega + atta
-        if u > 2 * m.pi:
-            u %= (2 * m.pi)
-        if u < 0:
-            u += 2 * m.pi
-
-        if omega > 2 * m.pi:
-            omega %= (2 * m.pi)
-        if omega < 0:
-            omega += 2 * m.pi
-        r = p / (1 + e * m.cos(atta))
-        #print(f"e = {e}, omega = {omega*cToDeg}, a = {(p / (1 - e ** 2))}, u = {u *cToDeg}, ascnode = {ascnode*cToDeg}")
-        #еще ода вариация из одной и той же методички (результаты обе формулы дают одинаковые)
-        #a = (cMu / ((2 * m.pi) / (2 * m.pi * (p / (1 - e ** 2)) * m.sqrt((p / (1 - e ** 2)) / cMu))) ** 2) ** (1 / 3)
+        counter = 0
+        #r = (p / (1 + e * m.cos(atta)))
+        r = orb.radius()
+        initial = data.copy()
         initial["a"] = a
         initial["e"] = e
         initial["i"] = i
         initial["omega"] = omega
         initial["ascnode"] = ascnode
         initial["u"] = u
-        initial["p"] = p
         initial["atta"] = atta
+        initial["p"] = p
         initial["r"] = r
-        A.append(a); P.append(p); E.append(e); R.append(r); OM.append(omega * cToDeg); X.append(my_time); T.append(my_time)
-        ASCNODE.append(ascnode * cToDeg); ARGLAT.append(u * cToDeg); INCL.append(i * cToDeg); ATTA.append(atta * cToDeg)
 
-        data_correction["Rp"] = p / (1 + e)
-        data_correction["e"] = e
-        data_correction["ArgLat"] = u #аргумент широты
-        data_correction["Incl"] = i
-        data_correction["AscNode"] = ascnode #долгота восходящего узла
-        data_correction["ArgPerigee"] = omega
-        data_correction["step"] = float(combo_step.get())
-        result_class_dict_graf, result_dict_graf = calc.update(data_correction, my_time)
-        Longitude = result_dict_graf['Longitude'] * cToDeg
-        Latitude = result_dict_graf['Latitude'] * cToDeg
-        Lon.append(Longitude); Lat.append(Latitude)
-        my_time += time_step
+        perturbation_algoritms = {
+            "none": eq.none_perturbations,
+            "atmosphere": eq.atmospheric_acceleration,
+            "gravy": eq.gravi_perturbations
+        }
+        stabilization_algorithms = {
+            "Постоянство эксцентриситета": eq.stabilization_esccentr,
+            "Максимальная скорость изменения эксцентриситета": eq.stabilization_max_speed_esccentr,
+            "Постоянство расстояния до перигея": eq.stabilization_perig,
+            "Максимальная скорость изменения расстояния до перигея": eq.stabilization_max_speed_perig,
+            "Постоянство расстояния до апогея": eq.stabilization_apog,
+            "Максимальная скорость изменения расстояния до апогея": eq.stabilization_max_speed_apog,
+            "Постоянство фокального параметра": eq.stabilization_phocpar,
+            "Максимальная скорость изменения фокального параметра": eq.stabilization_max_speed_phocpar,
+            "Постоянство большой полуоси": eq.stabilization_a,
+            "Максимальная скорость изменения большой полуоси": eq.stabilization_max_speed_a,
+            "Постоянство положения линии аписд": eq.stabilization_apsid,
+            "Максимальная скорость вращения линии аписд": eq.stabilization_max_speed_apsid
+        }
 
-        if data["perturbation"] in perturbation_algoritms:
-            S, Transvers, W = perturbation_algoritms[data["perturbation"]](initial)
+        intearated_methods = {
+            "Эйлера": eq.euler,
+            "Эйлера-Коши": eq.euler_cauchy,
+            "Рунге-Кутты 4": eq.runge_kutta_4,
+        }
 
-        S_list.append(S), T_list.append(Transvers), W_list.append(W)
-        counter += 1
-        if 33 <= Longitude <= 40 and 46 <= Latitude <= 52:
-            span += 1
-            OVER_GOAL.append(my_time)
-            print(f"Время прохождения над территорией {my_time}")
-            print(f"e = {e}, omega = {omega*cToDeg}, a = {a}, u = {u *cToDeg}, ascnode = {ascnode*cToDeg}")
-        progress_bar.n = my_time
-        progress_bar.set_postfix({
-            'Шаг': counter,
-            'Широта': f"{Latitude:.2f}°",
-            'Долгота': f"{Longitude:.2f}°",
-            'Над целью': span
-        })
-        progress_bar.refresh()
+        equations = [eq.da_func, eq.de_func, eq.di_func, eq.domega_func, eq.dascnode_func, eq.du_func, eq.datta_func]
+        span = 0
+        progress_bar = tqdm(total=time_stop, unit='s', desc="Вычисление орбиты")
 
-        my_time += time_step
-        counter += 1
-    print(OVER_GOAL)
-    progress_bar.close()
-    enable_all_buttons()
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    memo1.insert("end", f"Время работы graf: {elapsed_time} секунд\n")
-    memo1.insert("end", f"Количество итераций:{counter}\n")
-    memo1.insert("end", f"Количество пролетов: {span} раз\n")
-    save_to_excel(A, P, E, R, OM, ASCNODE, ARGLAT, INCL, ATTA, OVER_GOAL, X)
-    plot_graphs_with_scrollbar(X, A, P, E, R, OM, Lon, Lat)
+        while my_time <= time_stop:
+            if data["turn"] <= my_time <= (data["turn"] + data["work"]):
+                F = data["thrust"]/data["mass"]/1000
 
-    '''def beautified_plot(x, y, title, xlabel, ylabel, color='tab:blue'):
-        plt.figure(figsize=(8, 5))
-        plt.plot(x, y, color=color, linewidth=2)
-        plt.title(title, fontsize=14)
-        plt.xlabel(xlabel, fontsize=12)
-        plt.ylabel(ylabel, fontsize=12)
-        plt.grid(True, linestyle='--', alpha=0.6)
-        plt.tight_layout()
-        plt.show()
+                if data["stabelize"] in stabilization_algorithms:
+                    lam = stabilization_algorithms[data["stabelize"]](e, atta)
 
-    colors = ['tab:orange'] #, 'tab:orange', 'tab:green', 'tab:red', 'tab:purple','tab:brown', 'tab:pink', 'tab:gray', 'tab:olive', 'tab:cyan'
+            elif not (data["turn"] <= my_time <= (data["turn"] + data["work"])):
+                lam = 0
+                F = 0
 
-    beautified_plot(Lon, Lat, 'Трасса', 'Долгота', 'Широта', color=colors[0])
-    beautified_plot(T, ASCNODE, 'Долгота восходящего узла', 'Время', 'Omega, °', color=colors[0])
-    beautified_plot(T, P, 'Фокальный параметр', 'Время, с', 'P, км', color=colors[0])
-    beautified_plot(T, OM, 'Аргумент перицентра', 'Время, с', 'omega, °', color=colors[0])
-    beautified_plot(T, ARGLAT, 'Аргумент широты', 'Время', 'U, °', color=colors[0])
-    beautified_plot(T, E, 'Эксцентриситет', 'Время', 'e', color=colors[0])
-    beautified_plot(T, INCL, 'Наклонение', 'Время', 'i, °', color=colors[0])
-    beautified_plot(T, S_list, 'S', 'Время', 'S', color=colors[0])
-    beautified_plot(T, T_list, 'T', 'Время', 'T', color=colors[0])
-    beautified_plot(T, W_list, 'W', 'Время', 'W', color=colors[0])'''
+            if data["direction"] == "Отрицательное":
+                F = -F
 
-    ''' # Настройка общего стиля
-    plt.style.use('seaborn-v0_8')  # или 'ggplot', 'seaborn', 'fivethirtyeight'
-    plt.rcParams['figure.figsize'] = (10, 6)  # Размер графиков
-    plt.rcParams['lines.linewidth'] = 2  # Толщина линий
-    plt.rcParams['grid.alpha'] = 0.3  # Прозрачность сетки
+            initial["F"] = F
+            initial["lam"] = lam
+            dx =['a', 'e', 'i', 'omega', 'ascnode', 'u', 'atta']
+            if data["integr"] in intearated_methods:
+                values = intearated_methods[data["integr"]](equations, initial, data["step"], dx)
 
-    # --- 2. Долгота восходящего узла ---
-    plt.figure()
-    plt.plot(T, ASCNODE, color='darkorange', linewidth=7)
-    plt.title('Долгота восходящего узла', fontsize=14, pad=20)
-    plt.xlabel('Время, с', fontsize=12)
-    plt.ylabel('Ω, град', fontsize=12)
-    plt.grid(True, linestyle='--')
-    plt.tight_layout()
-    plt.show()
+            a = values[0]
+            e = values[1]
+            i = values[2]
+            omega = values[3]
+            ascnode = values[4]
+            u = values[5]
+            p = a * (1 - e ** 2)
+            atta = values[6]
+            #atta = u - omega
+            if atta >=  m.pi:
+                atta -= (2 * m.pi)
+            if atta <= - m.pi:
+                atta += 2 * m.pi
 
-    # --- 3. Фокальный параметр ---
-    plt.figure()
-    plt.plot(T, P, color='forestgreen', linewidth=7)
-    plt.title('Фокальный параметр', fontsize=14, pad=20)
-    plt.xlabel('Время, с', fontsize=12)
-    plt.ylabel('p, км', fontsize=12)
-    plt.grid(True, linestyle='--')
-    plt.tight_layout()
-    plt.show()
+            #arglat = omega + atta
+            if u > 2 * m.pi:
+                u %= (2 * m.pi)
+            if u < 0:
+                u += 2 * m.pi
 
-    # --- 4. Аргумент перицентра ---
-    plt.figure()
-    plt.plot(T, OM, color='crimson', linewidth=7)
-    plt.title('Аргумент перицентра', fontsize=14, pad=20)
-    plt.xlabel('Время, с', fontsize=12)
-    plt.ylabel('ω, град', fontsize=12)
-    plt.grid(True, linestyle='--')
-    plt.tight_layout()
-    plt.show()
+            if omega > 2 * m.pi:
+                omega %= (2 * m.pi)
+            if omega < 0:
+                omega += 2 * m.pi
+            r = p / (1 + e * m.cos(atta))
+            #print(f"e = {e}, omega = {omega*cToDeg}, a = {(p / (1 - e ** 2))}, u = {u *cToDeg}, ascnode = {ascnode*cToDeg}")
+            #еще ода вариация из одной и той же методички (результаты обе формулы дают одинаковые)
+            #a = (cMu / ((2 * m.pi) / (2 * m.pi * (p / (1 - e ** 2)) * m.sqrt((p / (1 - e ** 2)) / cMu))) ** 2) ** (1 / 3)
+            initial["a"] = a
+            initial["e"] = e
+            initial["i"] = i
+            initial["omega"] = omega
+            initial["ascnode"] = ascnode
+            initial["u"] = u
+            initial["p"] = p
+            initial["atta"] = atta
+            initial["r"] = r
+            A.append(a); P.append(p); E.append(e); R.append(r); OM.append(omega * cToDeg); X.append(my_time); T.append(my_time)
+            ASCNODE.append(ascnode * cToDeg); ARGLAT.append(u * cToDeg); INCL.append(i * cToDeg); ATTA.append(atta * cToDeg)
 
-    # --- 5. Аргумент широты ---
-    plt.figure()
-    plt.plot(T, ARGLAT, color='purple', linewidth=7)
-    plt.title('Аргумент широты', fontsize=14, pad=20)
-    plt.xlabel('Время, с', fontsize=12)
-    plt.ylabel('U, град', fontsize=12)
-    plt.grid(True, linestyle='--')
-    plt.tight_layout()
-    plt.show()
+            data_correction["Rp"] = p / (1 + e)
+            data_correction["e"] = e
+            data_correction["ArgLat"] = u #аргумент широты
+            data_correction["Incl"] = i
+            data_correction["AscNode"] = ascnode #долгота восходящего узла
+            data_correction["ArgPerigee"] = omega
+            data_correction["step"] = float(combo_step.get())
+            result_class_dict_graf, result_dict_graf = calc.update(data_correction, my_time)
+            Longitude = result_dict_graf['Longitude'] * cToDeg
+            Latitude = result_dict_graf['Latitude'] * cToDeg
+            Lon.append(Longitude); Lat.append(Latitude)
+            my_time += time_step
 
-    # --- 6. Эксцентриситет ---
-    plt.figure()
-    plt.plot(T, E, color='teal', linewidth=7)
-    plt.title('Эксцентриситет', fontsize=14, pad=20)
-    plt.xlabel('Время, с', fontsize=12)
-    plt.ylabel('e', fontsize=12)
-    plt.grid(True, linestyle='--')
-    plt.tight_layout()
-    plt.show()
+            if data["perturbation"] in perturbation_algoritms:
+                S, Transvers, W = perturbation_algoritms[data["perturbation"]](initial)
 
-    # --- 7. Наклонение ---
-    plt.figure()
-    plt.plot(T, INCL, color='goldenrod', linewidth=7)
-    plt.title('Наклонение орбиты', fontsize=14, pad=20)
-    plt.xlabel('Время, с', fontsize=12)
-    plt.ylabel('i, град', fontsize=12)
-    plt.grid(True, linestyle='--')
-    plt.tight_layout()
-    plt.show()
+            S_list.append(S), T_list.append(Transvers), W_list.append(W)
+            counter += 1
+            '''if 33 <= Longitude <= 40 and 46 <= Latitude <= 52:
+                span += 1
+                OVER_GOAL.append(my_time)
+                print(f"Время прохождения над территорией {my_time}")
+                print(f"e = {e}, omega = {omega*cToDeg}, a = {a}, u = {u *cToDeg}, ascnode = {ascnode*cToDeg}")'''
+            progress_bar.n = my_time
+            progress_bar.set_postfix({
+                'Шаг': counter,
+                'Широта': f"{Latitude:.2f}°",
+                'Долгота': f"{Longitude:.2f}°",
+                'Над целью': span
+            })
+            progress_bar.refresh()
 
-    # --- 8-10. S, T, W ---
-    for y_data, title, ylabel in zip([S_list, T_list, W_list], ['S', 'T', 'W'], ['S', 'T', 'W']):
-        plt.figure()
-        plt.plot(T, y_data, color='steelblue', linewidth=7)
-        plt.title(title, fontsize=14, pad=20)
-        plt.xlabel('Время, с', fontsize=12)
-        plt.ylabel(ylabel, fontsize=12)
-        plt.grid(True, linestyle='--')
-        plt.tight_layout()
-        plt.show()'''
+            my_time += time_step
+            counter += 1
+        print(OVER_GOAL)
+        progress_bar.close()
+        enable_all_buttons()
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        memo1.insert("end", f"Время работы graf: {elapsed_time} секунд\n")
+        memo1.insert("end", f"Количество итераций:{counter}\n")
+        memo1.insert("end", f"Количество пролетов: {span} раз\n")
+        save_to_excel(A, P, E, R, OM, ASCNODE, ARGLAT, INCL, ATTA, OVER_GOAL, X)
+        plot_graphs_with_scrollbar(X, A, P, E, R, OM, Lon, Lat)
 
-    plt.plot(Lon, Lat)
-    plt.title('Трасса')
-    plt.xlabel('Время')
-    plt.ylabel('Скорость')
-    plt.grid(True)
-    plt.show()
+        def beautified_plot(x, y, title, xlabel, ylabel, color='tab:blue'):
+            plt.figure(figsize=(8, 5))
+            plt.plot(x, y, color=color, linewidth=2)
+            plt.title(title, fontsize=14)
+            plt.xlabel(xlabel, fontsize=12)
+            plt.ylabel(ylabel, fontsize=12)
+            plt.grid(True, linestyle='--', alpha=0.6)
+            plt.tight_layout()
+            plt.show()
 
-    plt.plot(T, ASCNODE)
-    plt.title('Долгота восходящего узла')
-    plt.xlabel('Время')
-    plt.ylabel('Omega, c')
-    plt.grid(True)
-    plt.show()
+        colors = ['tab:orange'] #, 'tab:orange', 'tab:green', 'tab:red', 'tab:purple','tab:brown', 'tab:pink', 'tab:gray', 'tab:olive', 'tab:cyan'
 
-    plt.plot(T, P)
-    plt.title('Фокальный параметр')
-    plt.xlabel('Время, с')
-    plt.ylabel('Р, км')
-    plt.grid(True)
-    plt.show()
-
-    plt.plot(T, OM)
-    plt.title('Аргумент перицентра')
-    plt.xlabel("Время, с")
-    plt.ylabel('omega, град')
-    plt.grid(True)
-    plt.show()
-
-    plt.plot(T, ARGLAT)
-    plt.title('Аргумент широты')
-    plt.xlabel("Время")
-    plt.ylabel('U, град')
-    plt.grid(True)
-    plt.show()
-
-    plt.plot(T, E)
-    plt.title('Эксцентриситет')
-    plt.xlabel("Время")
-    plt.ylabel('е')
-    plt.grid(True)
-    plt.show()
-
-    plt.plot(T, INCL)
-    plt.title('Наклонение')
-    plt.xlabel('Время')
-    plt.ylabel('i, град')
-    plt.grid(True)
-    plt.show()
-
-    plt.plot(T, S_list)
-    plt.title('S')
-    plt.xlabel("Время")
-    plt.ylabel('S')
-    plt.grid(True)
-    plt.show()
-
-    plt.plot(T, T_list)
-    plt.title('T')
-    plt.xlabel("Время")
-    plt.ylabel('T')
-    plt.grid(True)
-    plt.show()
-
-    plt.plot(T, W_list)
-    plt.title('W')
-    plt.xlabel("Время")
-    plt.ylabel('W')
-    plt.grid(True)
-    plt.show()
+        beautified_plot(T, ASCNODE, 'Долгота восходящего узла', 'Время', 'Omega, °', color=colors[0])
+        beautified_plot(T, P, 'Фокальный параметр', 'Время, с', 'P, км', color=colors[0])
+        beautified_plot(T, OM, 'Аргумент перицентра', 'Время, с', 'omega, °', color=colors[0])
+        beautified_plot(T, ARGLAT, 'Аргумент широты', 'Время', 'U, °', color=colors[0])
+        beautified_plot(T, E, 'Эксцентриситет', 'Время', 'e', color=colors[0])
+        beautified_plot(T, INCL, 'Наклонение', 'Время', 'i, °', color=colors[0])
+        beautified_plot(T, S_list, 'S', 'Время', 'S', color=colors[0])
+        beautified_plot(T, T_list, 'T', 'Время', 'T', color=colors[0])
+        beautified_plot(T, W_list, 'W', 'Время', 'W', color=colors[0])
+    except ValueError as e:
+        enable_all_buttons()
+        print(f'Произошла ошибка {e}')
 
 def indignant():
     '''снести эту функцию, потому что по формулам правильно, но по результатам оно не правильно '''
-    disable_all_buttons()
-    ic.enable()
-    r0 = 6371 + 180
-    v_circular = np.sqrt(cMu / r0)  # Круговая скорость, км/с
-    v_initial = v_circular + 0.5  # Начальная скорость, км/с
-    h = v_initial**2 - ((2 * cMu) / r0)
-    data["Rp"] = r0
-    data["e"] = m.sqrt(1 + (v_initial**2 * r0**2 * h) / cMu**2)
-    data["ArgLat"] = float(combo_ArgLat.get()) * cToRad
-    data["Incl"] = float(combo_Incl.get()) * cToRad
-    data["AscNode"] = float(combo_AscNode.get()) * cToRad
-    data["ArgPerigee"] = float(combo_ArgPerig.get()) * cToRad
-    data["step"] = float(combo_step.get())
-    data["interval"] = float(combo_interval.get())
     try:
-        check_data(data)
+        disable_all_buttons()
+        ic.enable()
+        r0 = 6371 + 180
+        v_circular = np.sqrt(cMu / r0)  # Круговая скорость, км/с
+        v_initial = v_circular + 0.5  # Начальная скорость, км/с
+        h = v_initial**2 - ((2 * cMu) / r0)
+        data["Rp"] = r0
+        data["e"] = m.sqrt(1 + (v_initial**2 * r0**2 * h) / cMu**2)
+        data["ArgLat"] = float(combo_ArgLat.get()) * cToRad
+        data["Incl"] = float(combo_Incl.get()) * cToRad
+        data["AscNode"] = float(combo_AscNode.get()) * cToRad
+        data["ArgPerigee"] = float(combo_ArgPerig.get()) * cToRad
+        data["step"] = float(combo_step.get())
+        data["interval"] = float(combo_interval.get())
+        try:
+            check_data(data)
+        except ValueError as e:
+            return
+        start_time = time.time()
+        calc = cl.TSpacecraft(data)
+        orb = cl.TOrbitClass(data)
+        my_time = datetime.datetime.now().timestamp()
+        end_time = my_time + data["interval"] #+ orb.period()
+        time_step = orb.step
+        norm_time = 0
+        V = []; VR = []; VTR = []; IA = []; EA = []; R = []; T = []; x = []; y = []
+        counter = 0
+        while my_time < end_time:
+            result_class_dict_graf, result_dict_graf, vtr, vrad, ia, ea, r, v = calc.change_time(my_time)
+            x_values = result_dict_graf['Longitude'] * cToDeg
+            x.append(x_values)
+            y_values = result_dict_graf['Latitude'] * cToDeg
+            y.append(y_values)
+            V.append(v/1.8)
+            VTR.append(vtr/1.8)
+            VR.append(vrad)
+            IA.append(ia)
+            EA.append(ea)
+            R.append(r)
+            T.append(norm_time)
+            norm_time += time_step
+            my_time += time_step
+            counter += 1
+
+        plt.plot(x, y)
+        plt.title('Трасса')
+        plt.xlabel('Время')
+        plt.ylabel('Скорость')
+        plt.grid(True)
+        plt.show()
+
+        plt.plot(T, V)
+        plt.title('Полная скорость')
+        plt.xlabel('Время')
+        plt.ylabel('Скорость')
+        plt.grid(True)
+        plt.show()
+
+        plt.plot(T, VTR)
+        plt.title('Трансверсальная скорость')
+        plt.xlabel('Время')
+        plt.ylabel('Скорость')
+        plt.grid(True)
+        plt.show()
+
+        plt.plot(T, VR)
+        plt.title('Радиальная скорость')
+        plt.xlabel("Время")
+        plt.ylabel('Скорость')
+        plt.grid(True)
+        plt.show()
+
+        plt.plot(T, IA)
+        plt.title('Истаинная аномалия')
+        plt.xlabel("Время")
+        plt.ylabel('Истинная аномалия')
+        plt.grid(True)
+        plt.show()
+
+        plt.plot(T, EA)
+        plt.title('Эксцентрическая аномалия')
+        plt.xlabel("Время")
+        plt.ylabel('Эксцентрическая аномалия')
+        plt.grid(True)
+        plt.show()
+
+        plt.plot(T, R)
+        plt.title('Радиус')
+        plt.xlabel("Время")
+        plt.ylabel('Высота орбиты')
+        plt.grid(True)
+        plt.show()
+
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        memo1.insert("end", f"Время работы graf: {elapsed_time} секунд\n")
+        memo1.insert("end", f"Количество итераций:{counter}\n")
+        enable_all_buttons()
+
     except ValueError as e:
-        return
-    start_time = time.time()
-    calc = cl.TSpacecraft(data)
-    orb = cl.TOrbitClass(data)
-    my_time = datetime.datetime.now().timestamp()
-    end_time = my_time + data["interval"] #+ orb.period()
-    time_step = orb.step
-    norm_time = 0
-    V = []
-    VR = []
-    VTR = []
-    IA = []
-    EA = []
-    R = []
-    T = []
-    x = []
-    y = []
-    counter = 0
-    while my_time < end_time:
-        result_class_dict_graf, result_dict_graf, vtr, vrad, ia, ea, r, v = calc.change_time(my_time)
-        x_values = result_dict_graf['Longitude'] * cToDeg
-        x.append(x_values)
-        y_values = result_dict_graf['Latitude'] * cToDeg
-        y.append(y_values)
-        V.append(v/1.8)
-        VTR.append(vtr/1.8)
-        VR.append(vrad)
-        IA.append(ia)
-        EA.append(ea)
-        R.append(r)
-        T.append(norm_time)
-        norm_time += time_step
-        my_time += time_step
-        counter += 1
-
-    plt.plot(x, y)
-    plt.title('Трасса')
-    plt.xlabel('Время')
-    plt.ylabel('Скорость')
-    plt.grid(True)
-    plt.show()
-
-    plt.plot(T, V)
-    plt.title('Полная скорость')
-    plt.xlabel('Время')
-    plt.ylabel('Скорость')
-    plt.grid(True)
-    plt.show()
-
-    plt.plot(T, VTR)
-    plt.title('Трансверсальная скорость')
-    plt.xlabel('Время')
-    plt.ylabel('Скорость')
-    plt.grid(True)
-    plt.show()
-
-    plt.plot(T, VR)
-    plt.title('Радиальная скорость')
-    plt.xlabel("Время")
-    plt.ylabel('Скорость')
-    plt.grid(True)
-    plt.show()
-
-    plt.plot(T, IA)
-    plt.title('Истаинная аномалия')
-    plt.xlabel("Время")
-    plt.ylabel('Истинная аномалия')
-    plt.grid(True)
-    plt.show()
-
-    plt.plot(T, EA)
-    plt.title('Эксцентрическая аномалия')
-    plt.xlabel("Время")
-    plt.ylabel('Эксцентрическая аномалия')
-    plt.grid(True)
-    plt.show()
-
-    plt.plot(T, R)
-    plt.title('Радиус')
-    plt.xlabel("Время")
-    plt.ylabel('Высота орбиты')
-    plt.grid(True)
-    plt.show()
-
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    memo1.insert("end", f"Время работы graf: {elapsed_time} секунд\n")
-    memo1.insert("end", f"Количество итераций:{counter}\n")
-    enable_all_buttons()
-
+        enable_all_buttons()
+        print(f"Произошла ошибка: {e}")
 
 def _on_mouse_wheel(event, canvas):
     """Обработчик событий для прокрутки колесика мыши."""
@@ -898,7 +754,7 @@ def mouse_wheel(event):
 
 root = Tk()
 
-root.title(" Алтухов Е.С. М6О-201С-22")
+root.title(" Алтухов Е.С. М6О-401С-22")
 root.geometry("800x800")
 
 main_frame = Frame(root)
@@ -1061,30 +917,46 @@ combo_direction.current(0)
 combo_direction.pack()
 
 def graf_threat():
-    waiting = f"Подождите, это займет какое-то время"
-    memo1.insert("end", waiting + "\n")
-    thread = threading.Thread(target=graf)
-    thread.start()
+    try:
+        waiting = f"Подождите, это займет какое-то время"
+        memo1.insert("end", waiting + "\n")
+        thread = threading.Thread(target=graf)
+        thread.start()
+    except ValueError as e:
+        enable_all_buttons()
+        print(f'Произошла ошибка {e}')
 
-def correction_thread():
-    waiting = f"Подождите, это займет какое-то время"
-    memo1.insert("end", waiting + "\n")
-    thread2 = threading.Thread(target=correction)
-    thread2.start()
 
 def indignant_thread():
-    waiting = f"Подождите, это займет какое-то время"
-    memo1.insert("end", waiting + "\n")
-    thread2 = threading.Thread(target=indignant)
-    thread2.start()
+    try:
+        waiting = f"Подождите, это займет какое-то время"
+        memo1.insert("end", waiting + "\n")
+        thread2 = threading.Thread(target=indignant)
+        thread2.start()
+    except Exception as e:
+        enable_all_buttons()  # Вызов функции для включения всех кнопок
+        print(f"Произошла ошибка: {e}")
+
+def correction_thread():
+    try:
+        waiting = f"Подождите, это займет какое-то время"
+        memo1.insert("end", waiting + "\n")
+        thread2 = threading.Thread(target=correction)
+        thread2.start()
+    except ValueError as e:
+        enable_all_buttons()
+        print(f'Произошла ошибка {e}')
 
 def disable_all_buttons():
-    btn_load.config(state="disabled")
-    btn_calc.config(state="disabled")
-    btn_graf.config(state="disabled")
-    btn_correction.config(state="disabled")
-    btn_indignant.config(state="disabled")
-    btn_save.config(state="disabled")
+    try:
+        btn_load.config(state="disabled")
+        btn_calc.config(state="disabled")
+        btn_graf.config(state="disabled")
+        btn_correction.config(state="disabled")
+        btn_indignant.config(state="disabled")
+        btn_save.config(state="disabled")
+    except ValueError as e:
+        enable_all_buttons()
 
 def enable_all_buttons():
     btn_load.config(state="normal")
